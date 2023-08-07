@@ -13,6 +13,13 @@ $~$
 
 **Figure 2 | Containment hierarchy in self-assembled acyl chain bicelles - nodes only** Using the same system as Fig. 1 we can represent de data as nodes only, using their particle counts for the node sizes. The advantage of this representation is that it does not require VMD to be installed. Making is a stricly python dependent method.
 
+$~$
+
+![cylinder_containment](https://github.com/BartBruininks/mdvcontainment/assets/1488903/da3d8cdb-682f-4fe3-b7dc-bced188b390d)
+ 
+**Figure 3 | A periodic hollow cylinder in solution**. The cylinder (seg. 1) splits the solution into two segments, the solid cylinder inside the hollow cylinder (seg. -1), and all of the space outside of the cylinder (seg. -2). This results in the following containment graph {[-2, [1, -1]]}. Any complex configuration of periodic objects is supported by this algorithm in a robust manner.
+
+$~$
 
 # License
 MDVContainment is available under the Apache-2.0 license.
