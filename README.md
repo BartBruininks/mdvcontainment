@@ -9,7 +9,7 @@ Robust characterization of the inside and outside hierarchy for point clouds in 
 MDVContainment is available under the Apache-2.0 license.
 
 # Requirements
-Up to now MDVContainment has been tested to work on python >= 3.8 with Ubuntu 20.04.6 LTS. 
+MDVContainment has been tested to work with python >= 3.8 and Ubuntu 20.04.6 LTS. 
 
 # Installation
 ## Using git
