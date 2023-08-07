@@ -1,0 +1,18 @@
+mol off all
+display shadows on
+display ambientocclusion on
+display aoambient 0.900000
+display aodirect 0.400000
+
+pbc box -style tubes -width 1 -material AOChalky
+
+mol modmaterial 0 0 AOChalky
+mol modstyle 0 0 QuickSurf 1.500000 0.500000 1.000000 3.000000
+display projection Orthographic
+#display resetview
+#rotate x for -90
+render aasamples TachyonLOptiXInternal 50
+render aosamples TachyonLOptiXInternal 20
+mol on all
+render TachyonLOptiXInternal  text_render.png
+quit
