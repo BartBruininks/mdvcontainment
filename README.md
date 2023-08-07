@@ -1,6 +1,8 @@
 # MDVContainment
 **M**olecular **D**ynamics **V**oxel **Containment** yields a robust characterization of the inside and outside hierarchy for point clouds in periodic spaces (*e.g.* R^3/Z^3).
 
+Using a MDAnalysis supported structure file, bead selection and resolution, a density grid is created. This density grid is segmented using connected components and graph logic is utilized to solve the topological identification of inside and outside. This algorithm is applicable to both periodic and non-periodic segments.  
+
 ![blobs_containment_small](https://github.com/BartBruininks/mdvcontainment/assets/1488903/be5fff63-a967-47c2-a933-a3ecb7dcd5de)
 
 **Figure 1 | Containment hierarchy in self-assembled acyl chain bicelles.** The main void (-2) is the most outside segment in this system. It containes three non-periodic segments (1,2,3), segment 1 is split over the periodic boundary. Segment 3 contains a piece of void itself (-2). In list notation we represent the graph as [-2 1 2 [3 -1]], where the first element in each list is the container of the following elements.
