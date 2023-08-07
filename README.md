@@ -5,6 +5,11 @@ Robust characterization of the inside and outside hierarchy for point clouds in 
 
 **Figure 1 | Containment hierarchy in self-assembled acyl chain bicelles.** The main void (-2) is the most outside segment in this system. It containes three non-periodic segments (1,2,3), segment 1 is split over the periodic boundary. Segment 3 contains a piece of void itself (-2). In list notation we represent the graph as [-2 1 2 [3 -1]], where the first element in each list is the container of the following elements.
 
+![blobs_containment_nodes](https://github.com/BartBruininks/mdvcontainment/assets/1488903/e9b40b90-cd51-4565-9630-76403448413c)
+
+**Figure 2 | Contianment graph - nodes only** Using the same system as Fig. 1 we can represent de data as nodes only, using their particle counts for the node sizes.
+
+
 # License
 MDVContainment is available under the Apache-2.0 license.
 
