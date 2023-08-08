@@ -5,7 +5,7 @@ Using a MDAnalysis supported structure file, bead selection and resolution, a de
 
 ![blobs_containment_small](https://github.com/BartBruininks/mdvcontainment/assets/1488903/be5fff63-a967-47c2-a933-a3ecb7dcd5de)
 
-**Figure 1 | Containment hierarchy in self-assembled acyl chain bicelles.** The main void (seg. -2) is the most outside segment in this system. It containes three non-periodic segments (seg. 1,2,3), segment 1 is split over the periodic boundary. Segment 3 contains a piece of void itself (seg. -2). In list notation we represent the graph as {[-2 1 2 [3 -1]]}, where the first element in each list is the container of the following elements.
+**Figure 1 | Containment hierarchy in self-assembled acyl chain bicelles.** The main void (seg. -2) is the most outside segment in this system. It containes three non-periodic segments (seg. 1,2,3), segment 1 is split over the periodic boundary. Segment 3 contains a piece of inner void (seg. -1). In list notation we represent the graph as {[-2 1 2 [3 -1]]}, where the first element in each list is the container of the following elements.
 
 $~$
 
