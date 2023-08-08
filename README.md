@@ -1,7 +1,7 @@
-q# MDVContainment
+# MDVContainment
 **M**olecular **D**ynamics **V**oxel **Containment** yields a robust characterization of the inside and outside hierarchy for point clouds in periodic spaces of dimensionality three or lower (*e.g.* R^3/Z^3).
 
-Using a MDAnalysis supported structure file, bead selection and resolution, a density grid is created. This density grid is segmented using connected components and graph logic is utilized to solve the topological identification of inside and outside. This algorithm is applicable to both periodic and non-periodic segments. The final output is a set of Directed Acyclic Graphs (DAGs) running from the largest container to the smallest (from outside inwards). This containment logic can then be used to analyse or manipulate the systems. Allowing for the selections of a single segment, which takes into account all segments which lie in it. The graphs shown below are also automatically generated, so one can have a good understanding of the topology of the system even for very large and complex ones.   
+Using a MDAnalysis supported structure file, bead selection and resolution, a density grid is created. This density grid is segmented using connected components and graph logic is utilized to solve the topological identification of inside and outside. This algorithm is applicable to both periodic and non-periodic segments. The final output is a set of Directed Acyclic Graphs (DAGs) running from the largest container to the smallest (from outside inwards). This containment logic can then be used to analyse or manipulate the systems.
 
 ![blobs_containment_small](https://github.com/BartBruininks/mdvcontainment/assets/1488903/be5fff63-a967-47c2-a933-a3ecb7dcd5de)
 
