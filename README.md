@@ -22,6 +22,8 @@ $~$
 $~$
 
 # License
+This work is currently in the process of publication the DOI of the mansucript will be placed here when it is available. Please cite this work if you use it for scientific publications. It helps me continue to work on this kind of software, thanks!
+
 MDVContainment is available under the Apache-2.0 license.
 
 # Requirements
