@@ -37,7 +37,7 @@ pip install .
 # Usage
 ```
 ## Minimum required imports
-import containment as mdvc
+import mdvcontainment as mdvc
 import MDAnalysis as mda
 ## Displaying the containment graph
 import webbrowser
