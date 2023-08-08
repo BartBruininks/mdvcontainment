@@ -1,4 +1,4 @@
-# MDVContainment
+q# MDVContainment
 **M**olecular **D**ynamics **V**oxel **Containment** yields a robust characterization of the inside and outside hierarchy for point clouds in periodic spaces of dimensionality three or lower (*e.g.* R^3/Z^3).
 
 Using a MDAnalysis supported structure file, bead selection and resolution, a density grid is created. This density grid is segmented using connected components and graph logic is utilized to solve the topological identification of inside and outside. This algorithm is applicable to both periodic and non-periodic segments.  
@@ -11,7 +11,7 @@ $~$
 
 ![blobs_containment_nodes](https://github.com/BartBruininks/mdvcontainment/assets/1488903/3769a16d-1beb-45a1-8e98-6e9eac088a4a)
 
-**Figure 2 | Containment hierarchy in self-assembled acyl chain bicelles - nodes only** Using the same system as Fig. 1 we can represent de data as nodes only, using their particle counts for the node sizes. The advantage of this representation is that it does not require VMD to be installed. Making is a stricly python dependent method.
+**Figure 2 | Containment hierarchy in self-assembled acyl chain bicelles - nodes only** Using the same system as Fig. 1 we can represent the data as nodes only, using their particle counts for the node sizes. The advantage of this representation is that it does not require VMD to be installed. Making is a stricly python dependent method.
 
 $~$
 
