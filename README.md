@@ -1,5 +1,5 @@
 # MDVContainment
-**M**olecular **D**ynamics **V**oxel **Containment** yields a robust characterization of the inside and outside hierarchy for point clouds in periodic spaces (*e.g.* R^3/Z^3).
+**M**olecular **D**ynamics **V**oxel **Containment** yields a robust characterization of the inside and outside hierarchy for point clouds in periodic spaces of dimensionality three or lower (*e.g.* R^3/Z^3).
 
 Using a MDAnalysis supported structure file, bead selection and resolution, a density grid is created. This density grid is segmented using connected components and graph logic is utilized to solve the topological identification of inside and outside. This algorithm is applicable to both periodic and non-periodic segments.  
 
