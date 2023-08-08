@@ -1593,6 +1593,21 @@ class Containers():
             fix_bfactor_per_residue(atomgroup)
         return atomgroup
     
+    def get_root_nodes(self):
+        """
+        Returns the root nodes of the containment graph.
+        """
+        return [node for node in self.containment_graph.nodes if 
+                self.containment_graph.in_degree(node) == 0]
+    
+    
+    def get_leaf_nodes(self):
+        """
+        Returns the leaf nodes of the containment graph.
+        """
+        return [node for node in self.containment_graph.nodes if 
+                self.containment_graph.out_degree(node) == 0]
+    
     def render(self, prefix='test_container_', ftype='png'):
         """
         Renders the cotainment graph nodes.
