@@ -47,7 +47,7 @@ import MDAnalysis as mda
 import webbrowser
 from IPython.display import display
 
-## A TPR can be used in combination with the GRO to add the boneded information.
+## A TPR can be used in combination with the GRO to add the bonded information.
 #  One can also use a PDB annotated file for the bonds, although the maximum bonds
 #  is then coupled to the PDB fixed file format (max 9999?).
 TPR = 'blobs.tpr'
