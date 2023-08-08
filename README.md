@@ -5,13 +5,13 @@ Using a MDAnalysis supported structure file, bead selection and resolution, a de
 
 ![blobs_containment_small](https://github.com/BartBruininks/mdvcontainment/assets/1488903/be5fff63-a967-47c2-a933-a3ecb7dcd5de)
 
-**Figure 1 | Containment hierarchy in self-assembled acyl chain bicelles.** The main void (seg. -2) is the most outside segment in this system. It containes three non-periodic segments (seg. 1, 2, 3), where seg. 1 is split over the periodic boundary. Seg. 3 contains a piece of inner void (seg. -1). In list notation we represent the graph as {[-2 1 2 [3 -1]]}, where the first element in each list is the container of the following elements.
+**Figure 1 | Containment hierarchy in self-assembled acyl chain bicelles.** The main solvent (seg. -2) is the most outside segment in this system. It containes three non-periodic segments (seg. 1, 2, 3), where seg. 1 is split over the periodic boundary. Seg. 3 contains a piece of inner solvent (seg. -1). In list notation we represent the set of graphs as {[-2 1 2 [3 -1]]}, where the first element in each list is the container of the following elements and different elements of the set represent disconnected DAGs.
 
 $~$
 
 ![blobs_containment_nodes](https://github.com/BartBruininks/mdvcontainment/assets/1488903/3769a16d-1beb-45a1-8e98-6e9eac088a4a)
 
-**Figure 2 | Containment hierarchy in self-assembled acyl chain bicelles - nodes only** Using the same system as Fig. 1 we can represent the data as nodes only, using their particle counts for the node sizes. The advantage of this representation is that it does not require VMD to be installed. Making is a stricly python dependent method.
+**Figure 2 | Containment hierarchy in self-assembled acyl chain bicelles - nodes only** Using the same system as Fig. 1 we can represent the data as nodes only, using their particle counts for the node sizes. The advantage of this representation is that it does not require VMD to be installed. Making it a stricly python dependent method.
 
 $~$
 
