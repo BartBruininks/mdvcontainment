@@ -284,7 +284,11 @@ def get_all_pairs_update(label_array, nbox, mask=None, return_counts=False,
         temp_array = label_array.copy()
         temp_array[~mask] = none_value
         labels_indices_dict = ndimage.value_indices(temp_array)
-        labels_indices_dict.pop(none_value)
+        # Remove 0 if it is present
+        try:
+            labels_indices_dict.pop(none_value)
+        except KeyError:
+            pass
     shape = label_array.shape
     # Check the 4 2d cases (and their inverse).
     if len(shape) == 2:
