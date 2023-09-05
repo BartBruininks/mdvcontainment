@@ -1,6 +1,8 @@
-src/mdvcontainment/__pycache__
+*/__pycache__/*
+src/mdvcontainment/__pycache__/*
 *mdvcontainment.egg-info
 *cpython
 usecases
 test_data
+example_notebooks
 old
