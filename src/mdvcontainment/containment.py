@@ -51,7 +51,6 @@ def fix_bfactor_per_residue(atomgroup):
     universe = atomgroup.universe
     for residue in atomgroup.residues:
         ids = residue.atoms.ix
-        print(ids)
         counts = dict(zip(*np.unique(universe.atoms.tempfactors[ids], return_counts=True)))
         try:
             counts.pop(0)
