@@ -1467,6 +1467,12 @@ class Containers():
         """
         self.containment_graph = self._raw_containment_graph
     
+    def get_components(self):
+        """
+        Returns the components in the containment graph.
+        """
+        return list(self.containment_graph.nodes())
+    
     def _annotate_containment_graph(self):
         """
         Returns the containment graph with extra values from the output_dict of get_containers.
@@ -1714,3 +1720,83 @@ class Containers():
         '''
         net.set_options(opts)
         return net.show(name)
+    
+    def _create_containment_dictionary(self):
+        """
+        Returns the containment in a flat dictionary form.
+    
+        e.g.
+        -4 : -4, 1, -2
+        """
+        containment_dictionary = {}
+        for node in self.get_components():
+            containment_dictionary[node] = self.get_downstream_nodes([node])
+        return containment_dictionary
+
+    def _write_tcl_containment(self, containment_dictionary, fname='containment.vmd'):
+        """
+        Writes the containment dictionary as VMD selection macros.
+        """
+        with open(fname, 'w') as f:
+            for container in containment_dictionary.keys():
+                containment_string = ''.join([f'\'{x}\' ' for x in containment_dictionary[container]])
+                if container >= 0 :
+                    f.write(f"atomselect macro cont_p{container} \"beta {containment_string}\"\n")
+                else:
+                    f.write(f"atomselect macro cont_n{abs(container)} \"beta {containment_string}\"\n")
+
+    def _write_tcl_visualization(self, containment_dictionary, fname='containment.vmd'):
+        """
+        Appends the QuickSurf transparent selection style to the VMD file.
+        """
+        with open(fname, 'a') as f:
+            f.write(f'\nmol delrep 0 0\n')
+            for idx, container in enumerate(containment_dictionary.keys()):
+                f.write(f'mol addrep 0\n')
+                if container >= 0:
+                    f.write(f'mol modselect {idx} 0 cont_p{container}\n')
+                else:
+                    f.write(f'mol modselect {idx} 0 cont_n{abs(container)}\n')
+                f.write(f'mol modstyle {idx} 0 QuickSurf 2.500000 0.500000 1.000000 1.000000\n')
+                f.write(f'mol modmaterial {idx} 0 Transparent\n')
+                f.write(f'mol modcolor {idx} 0 ColorID {idx}\n')    
+
+
+    def write_components(self, 
+                         fname_struc='containment.pdb', 
+                         fname_vmd='containment.vmd',
+                         add_style=True,
+                         residue=False):
+        """
+        Writes the complete structure as a PDB with the components annotated
+        in the beta field. Also adds an additional VMD TCL file which sets
+        some basic rendering settings (style) and adds the containment hierarchy
+        to the selection syntax.
+        
+        i.e.
+        $vmd cont_p1 and not cont_n1
+        
+        Where p stands for positive and n for negative, as VMD does not 
+        allow for the dash sign in variable names.
+        
+        Residue can be set to True, to take the dominant component per residue,
+        this is pretty slow in MDA and usually not required. Turning this off
+        sets the component ID per atom.
+
+        Returns
+        -------
+        None.
+
+        """
+        # Write the system file with the beta factor.
+        atomgroup = self.get_atomgroup_from_nodes(
+            self.get_components(),
+            b_factor=True,
+            residue=residue)
+        atomgroup.write(fname_struc)
+        # Bake the containment dictionary
+        containment_dict = self._create_containment_dictionary()
+        # Write the dicitonary to TCL
+        self._write_tcl_containment(containment_dict, fname_vmd)
+        # Write the visualization
+        self._write_tcl_visualization(containment_dict, fname_vmd)
