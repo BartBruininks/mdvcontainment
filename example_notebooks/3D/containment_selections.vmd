@@ -1,0 +1,26 @@
+atomselect macro cont_n2 "beta '-2' '1' '-1' '2' "
+atomselect macro cont_n1 "beta '-1' '2' "
+atomselect macro cont_p1 "beta '1' '-1' '2' "
+atomselect macro cont_p2 "beta '2' "
+
+mol delrep 0 0
+mol addrep 0
+mol modselect 0 0 cont_n2
+mol modstyle 0 0 QuickSurf 2.500000 0.500000 1.000000 1.000000
+mol modmaterial 0 0 Transparent
+mol modcolor 0 0 ColorID 0
+mol addrep 0
+mol modselect 1 0 cont_n1
+mol modstyle 1 0 QuickSurf 2.500000 0.500000 1.000000 1.000000
+mol modmaterial 1 0 Transparent
+mol modcolor 1 0 ColorID 1
+mol addrep 0
+mol modselect 2 0 cont_p1
+mol modstyle 2 0 QuickSurf 2.500000 0.500000 1.000000 1.000000
+mol modmaterial 2 0 Transparent
+mol modcolor 2 0 ColorID 2
+mol addrep 0
+mol modselect 3 0 cont_p2
+mol modstyle 3 0 QuickSurf 2.500000 0.500000 1.000000 1.000000
+mol modmaterial 3 0 Transparent
+mol modcolor 3 0 ColorID 3
