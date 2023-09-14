@@ -1,0 +1,28 @@
+mol off all
+display shadows on
+display ambientocclusion on
+display aoambient 0.900000
+display aodirect 0.400000
+display projection Orthographic
+
+pbc box -style tubes -width 1 -material AOChalky
+
+mol modmaterial 0 0 Transparent
+# coloring depending on the sign
+set sign [lindex [split [lindex [split [lindex [split [mol list]] 4] __] [llength [split [lindex [split [mol list]] 4] _]]-1] ""] 0]
+echo $sign
+if { $sign == "-"  } {
+    mol modcolor 0 0 ColorID 1
+} else {
+    mol modcolor 0 0 ColorID 0
+}
+#mol modstyle 0 0 VDW 2.000000 12.000000
+mol modstyle 0 0 QuickSurf 2.50000 0.500000 1.000000 3.000000
+display projection Orthographic
+#display resetview
+rotate y for -90
+render aasamples TachyonLOptiXInternal 50
+render aosamples TachyonLOptiXInternal 20
+mol on all
+render TachyonLOptiXInternal  text_render.png
+quit
