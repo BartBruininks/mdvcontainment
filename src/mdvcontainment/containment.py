@@ -1648,7 +1648,8 @@ class Containers():
         partially in the atomgroup.
         """
         downstream_components = self.get_downstream_components(components)
-        downstream_atomgroup = self.get_atomgroup_from_components(downstream_components)
+        downstream_atomgroup = self.get_atomgroup_from_components(
+            downstream_components, b_factor=b_factor, residue=residue)
         return downstream_atomgroup
 
     def get_root_components(self):
