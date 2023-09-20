@@ -1520,7 +1520,7 @@ class Containers():
         return containment_graph
     
     
-    def get_downstream_nodes(self, targets, nodes=[], init=True):
+    def get_downstream_nodes(self, targets, nodes=[], init=True, max_depth=100000, depth=0):
         """
         Returns the node list from the selected node towards the leaves including self.
         
@@ -1528,6 +1528,7 @@ class Containers():
         stacking results if I run this function multiple times. I have no idea why that is,
         as the default value is [] and it should be instantiated with an empty input.
         """
+        depth += 1
         if init:
             nodes = []
         new_targets = []
@@ -1536,8 +1537,13 @@ class Containers():
             temp_targets = [out_edge[1] for out_edge in list(self.containment_graph.out_edges(target))]
             if len(temp_targets) > 0:
                 new_targets += [x for x in temp_targets]
-        if len(new_targets) > 0:
-            self.get_downstream_nodes(new_targets, nodes, init=False)
+        if len(new_targets) > 0 and max_depth >= depth:
+            self.get_downstream_nodes(
+                new_targets, 
+                nodes, 
+                init=False, 
+                max_depth=max_depth, 
+                depth=depth)
         return nodes
     
     def get_upstream_nodes(self, targets, nodes=[], init=True):
