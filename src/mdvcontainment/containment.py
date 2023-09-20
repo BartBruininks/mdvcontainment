@@ -1799,3 +1799,25 @@ class Containers():
         self._write_tcl_containment(containment_dict, fname_vmd)
         # Write the visualization
         self._write_tcl_visualization(containment_dict, fname_vmd)
+    
+        
+def get_atomgroup_composition(atomgroup, molar=False):
+    """
+    Returns the composition of component of atomgroup as a dict 
+    {resname : count}.
+    
+    Returns
+    -------
+    composition : dict
+        The resnames are keys and the count of the resname in the atoms
+        is the amount (i.e. multiple atoms in a residue count double).
+        Unless molar is set to True, which will result in each residue
+        only being counter once.
+    """
+    if molar:
+        composition = dict(zip(
+            *np.unique(atomgroup.residues.resnames, return_counts=True)))
+    else:
+        composition = dict(zip(
+            *np.unique(atomgroup.resnames, return_counts=True)))
+    return composition
