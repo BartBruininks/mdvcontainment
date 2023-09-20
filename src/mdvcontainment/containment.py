@@ -1448,7 +1448,7 @@ class Containers():
         self.data = get_containers(self._atomgroup, self._resolution, self._blur_amount, self._plotting)
         # Obtaining the real used resolution which should be close to the target resolution.
         #  This resoltuion and volume are used for voxel based volume estimation.
-        self._real_resolution = (self._atomgroup.dimensions[:3] / self.data['relabeled_combined_label_array'].shape)*0.1
+        self._real_resolution = (self._atomgroup.dimensions[:3] / self.data['relabeled_combined_label_array'].shape)
         self._voxel_volume = np.prod(self._real_resolution)
         # Creating and expanding the containment graph (this is a copy).
         self.containment_graph = self._annotate_containment_graph()
@@ -1522,7 +1522,7 @@ class Containers():
         return containment_graph
     
     
-    def get_downstream_components(self, targets, components=[], init=True, max_depth=100000, depth=0):
+    def get_downstream_components(self, targets, components=[], init=True, max_depth=1000000, depth=0):
         """
         Returns the node list from the selected node towards the leaves including self.
         
@@ -1557,7 +1557,7 @@ class Containers():
             max_depth=1
             )[len(components):]
     
-    def get_upstream_components(self, targets, components=[], init=True):
+    def get_upstream_components(self, targets, components=[], init=True, max_depth=1000000, depth=0):
         """
         Returns the node list from the selected components towards the leaves including self.
         
@@ -1565,6 +1565,7 @@ class Containers():
         stacking results if I run this function multiple times. I have no idea why that is,
         as the default value is [] and it should be instantiated with an empty input.
         """
+        depth += 1
         if init:
             components = []
         new_targets = []
@@ -1573,9 +1574,24 @@ class Containers():
             temp_targets = [in_edge[0] for in_edge in list(self.containment_graph.in_edges(target))]
             if len(temp_targets) > 0:
                 new_targets += [x for x in temp_targets]
-        if len(new_targets) > 0:
-            self.get_upstream_components(new_targets, components, init=False)
+        if len(new_targets) > 0 and max_depth >= depth:
+            self.get_upstream_components(
+                new_targets, 
+                components, 
+                init=False, 
+                max_depth=max_depth, 
+                depth=depth)
         return components
+    
+    def get_parents_components(self, components):
+        """
+        Returns the parents of the given components.
+        """
+        return self.get_upstream_components(
+            components, 
+            max_depth=1
+            )[len(components):]
+
     
     def get_components_volume(self, components):
         """
