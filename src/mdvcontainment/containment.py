@@ -1577,7 +1577,7 @@ class Containers():
             self.get_upstream_components(new_targets, components, init=False)
         return components
     
-    def get_compnents_volume(self, components):
+    def get_components_volume(self, components):
         """
         Returns the voxel volume of the components.
         """
@@ -1588,7 +1588,7 @@ class Containers():
         volume *= self._voxel_volume
         return volume
     
-    def get_atomgroup_from_components(self, components, b_factor=True, residue=True):
+    def get_atomgroup_from_components(self, components, b_factor=True, residue=False):
         """
         Takes a component list and returns the merged atomgroup.
         
@@ -1619,6 +1619,22 @@ class Containers():
             fix_bfactor_per_residue(atomgroup)
         return atomgroup
     
+    def get_container_atomgroup_from_components(self, components, b_factor=True, residue=False):
+        """
+        Returns the atomgroup of the components containers.
+        
+        A container includes the components specified and all components downstream.
+        
+        The component ids can be written to the b-factor (default). The b-factor is taken
+        from the voxel mask, therefore a residue can lie in different masks and have
+        multiple b-factors. If residues is True, the most prevalent non-zero b-factor
+        is picked per residue. This also returns complete residues even if they are only
+        partially in the atomgroup.
+        """
+        downstream_components = self.get_downstream_components(components)
+        downstream_atomgroup = self.get_atomgroup_from_components(downstream_components)
+        return downstream_atomgroup
+
     def get_root_components(self):
         """
         Returns the root components of the containment graph.
