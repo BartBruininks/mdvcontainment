@@ -1500,6 +1500,8 @@ class Containers():
     
     def collapse_small_nodes(self, cutoff=50, key='size', self_loops=False, in_place=False):
         """
+        # THIS IS AN EXPERIMENTAL FEATURE AND WIL CHANGE!!!
+        
         Returns a collapsed containment graph, where all nodes smaller than the cutoff 
         are merged with their upstream container.
         """
@@ -1520,7 +1522,7 @@ class Containers():
         return containment_graph
     
     
-    def get_downstream_nodes(self, targets, nodes=[], init=True, max_depth=100000, depth=0):
+    def get_downstream_components(self, targets, components=[], init=True, max_depth=100000, depth=0):
         """
         Returns the node list from the selected node towards the leaves including self.
         
@@ -1530,58 +1532,67 @@ class Containers():
         """
         depth += 1
         if init:
-            nodes = []
+            components = []
         new_targets = []
         for target in targets:
-            nodes.append(target)
+            components.append(target)
             temp_targets = [out_edge[1] for out_edge in list(self.containment_graph.out_edges(target))]
             if len(temp_targets) > 0:
                 new_targets += [x for x in temp_targets]
         if len(new_targets) > 0 and max_depth >= depth:
-            self.get_downstream_nodes(
+            self.get_downstream_components(
                 new_targets, 
-                nodes, 
+                components, 
                 init=False, 
                 max_depth=max_depth, 
                 depth=depth)
-        return nodes
+        return components
     
-    def get_upstream_nodes(self, targets, nodes=[], init=True):
+    def get_children_components(self, components):
         """
-        Returns the node list from the selected node towards the leaves including self.
+        Returns the children of the given components.
+        """
+        return self.get_downstream_components(
+            components, 
+            max_depth=1
+            )[len(components):]
+    
+    def get_upstream_components(self, targets, components=[], init=True):
+        """
+        Returns the node list from the selected components towards the leaves including self.
         
         There is something strange going on, if I do not pass the init argument, I get
         stacking results if I run this function multiple times. I have no idea why that is,
         as the default value is [] and it should be instantiated with an empty input.
         """
         if init:
-            nodes = []
+            components = []
         new_targets = []
         for target in targets:
-            nodes.append(target)
+            components.append(target)
             temp_targets = [in_edge[0] for in_edge in list(self.containment_graph.in_edges(target))]
             if len(temp_targets) > 0:
                 new_targets += [x for x in temp_targets]
         if len(new_targets) > 0:
-            self.get_upstream_nodes(new_targets, nodes, init=False)
-        return nodes
+            self.get_upstream_components(new_targets, components, init=False)
+        return components
     
-    def get_volume(self, nodes):
+    def get_compnents_volume(self, components):
         """
-        Returns the voxel volume of the nodes.
+        Returns the voxel volume of the components.
         """
         volume = 0
         counts_dict = dict(zip(*np.unique(self.data['relabeled_combined_label_array'], return_counts=True)))
-        for node in nodes:
-            volume += counts_dict[node]
+        for component in components:
+            volume += counts_dict[component]
         volume *= self._voxel_volume
         return volume
     
-    def get_atomgroup_from_nodes(self, nodes, b_factor=True, residue=True):
+    def get_atomgroup_from_components(self, components, b_factor=True, residue=True):
         """
-        Takes a node list and returns the merged atomgroup.
+        Takes a component list and returns the merged atomgroup.
         
-        The node ids can be written to the b-factor (default). The b-factor is taken
+        The component ids can be written to the b-factor (default). The b-factor is taken
         from the voxel mask, therefore a residue can lie in different masks and have
         multiple b-factors. If residues is True, the most prevalent non-zero b-factor
         is picked per residue. This also returns complete residues even if they are only
@@ -1596,36 +1607,36 @@ class Containers():
                 universe.add_TopologyAttr(
                     mda.core.topologyattrs.Tempfactors(np.zeros(len(universe.atoms))))
                 
-        atomgroup = self.containment_graph.nodes(data=True)[nodes[0]]['atoms']
+        atomgroup = self.containment_graph.nodes(data=True)[components[0]]['atoms']
         if b_factor:
-            atomgroup.tempfactors = nodes[0]
-        for node in nodes[1:]:
-            target_atomgroup = self.containment_graph.nodes(data=True)[node]['atoms']
+            atomgroup.tempfactors = components[0]
+        for component in components[1:]:
+            target_atomgroup = self.containment_graph.nodes(data=True)[component]['atoms']
             atomgroup = atomgroup.union(target_atomgroup)
-            target_atomgroup.tempfactors = node
+            target_atomgroup.tempfactors = component
         if residue:
             atomgroup = atomgroup.residues.atoms
             fix_bfactor_per_residue(atomgroup)
         return atomgroup
     
-    def get_root_nodes(self):
+    def get_root_components(self):
         """
-        Returns the root nodes of the containment graph.
+        Returns the root components of the containment graph.
         """
-        return [node for node in self.containment_graph.nodes if 
-                self.containment_graph.in_degree(node) == 0]
+        return [component for component in self.containment_graph.nodes if 
+                self.containment_graph.in_degree(component) == 0]
     
     
-    def get_leaf_nodes(self):
+    def get_leaf_components(self):
         """
-        Returns the leaf nodes of the containment graph.
+        Returns the leaf components of the containment graph.
         """
-        return [node for node in self.containment_graph.nodes if 
-                self.containment_graph.out_degree(node) == 0]
+        return [component for component in self.containment_graph.nodes if 
+                self.containment_graph.out_degree(component) == 0]
     
     def render(self, prefix='test_container_', ftype='png'):
         """
-        Renders the cotainment graph nodes.
+        Renders the cotainment graph components.
         """
         write_containment(
             self._atomgroup.universe, 
@@ -1734,8 +1745,8 @@ class Containers():
         -4 : -4, 1, -2
         """
         containment_dictionary = {}
-        for node in self.get_components():
-            containment_dictionary[node] = self.get_downstream_nodes([node])
+        for component in self.get_components():
+            containment_dictionary[component] = self.get_downstream_components([component])
         return containment_dictionary
 
     def _write_tcl_containment(self, containment_dictionary, fname='containment.vmd'):
@@ -1755,9 +1766,9 @@ class Containers():
         Appends the QuickSurf transparent selection style to the VMD file.
         """
         with open(fname, 'a') as f:
-            f.write(f'\nmol delrep 0 0\n')
+            f.write('\nmol delrep 0 0\n')
             for idx, container in enumerate(containment_dictionary.keys()):
-                f.write(f'mol addrep 0\n')
+                f.write('mol addrep 0\n')
                 if container >= 0:
                     f.write(f'mol modselect {idx} 0 cont_p{container}\n')
                 else:
@@ -1794,7 +1805,7 @@ class Containers():
 
         """
         # Write the system file with the beta factor.
-        atomgroup = self.get_atomgroup_from_nodes(
+        atomgroup = self.get_atomgroup_from_components(
             self.get_components(),
             b_factor=True,
             residue=residue)
