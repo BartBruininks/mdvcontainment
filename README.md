@@ -39,7 +39,7 @@ cd mdvcontainment
 pip install .
 ```
 # Usage
-For completely worked examples in jupyter notebook, take a look at the `example_notebooks` folder. The 2D and 3D examples are run on syntethic data for clarity, the MD tutorial uses real MD data.
+For worked examples in jupyter notebooks, take a look at the `example_notebooks` folder. The 2D and 3D examples are run on syntethic data for clarity, the MD tutorial uses real MD data.
 ```
 ## Minimum required imports
 import mdvcontainment as mdvc
