@@ -34,11 +34,18 @@ MDVContainment has been tested to work with python >= 3.8 and Ubuntu 20.04.6 LTS
 # Installation
 ## Using git
 ```
+pip3 install git+https://github.com/BartBruininks/mdvcontainment
+```
+
+or
+
+```
 git clone git@github.com:BartBruininks/mdvcontainment.git
 cd mdvcontainment
 pip install .
 ```
 # Usage
+For worked examples in jupyter notebooks, take a look at the `example_notebooks` folder. The 2D and 3D examples are run on syntethic data for clarity, the MD tutorial uses real MD data.
 ```
 ## Minimum required imports
 import mdvcontainment as mdvc
