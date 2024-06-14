@@ -23,7 +23,7 @@ import numpy as np
 import networkx as nx
 import MDAnalysis as mda
 #import matplotlib
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from scipy import ndimage
 from mdvwhole import whole as mdvw
 from pyvis import network as pvnet
@@ -35,6 +35,12 @@ import os
 # useful for showing the final conainment graph in browser
 import webbrowser
 
+
+class VoxelsFromVoxels():
+    def __init__(self, voxels, nbox):
+        self.grid = voxels
+        self.nbox = nbox
+    
 
 ## Generic helper functions
 def fix_bfactor_per_residue(atomgroup):
@@ -419,6 +425,7 @@ def bridges2graph(bridges, nodes):
         if 0 in bridge[:2]:
             continue
         #G.add_edge(labels[a], labels[b], label=str(rev_shift), value=int(bridges[a,b,s]), cost=rev_shift)
+        print(f'value: {bridges[bridge]}, cost {bridge[2:]}')
         graph.add_edge(int(bridge[0]), int(bridge[1]), label=str(bridge[2:]), value=bridges[bridge], cost=bridge[2:])
     return graph
 
@@ -448,6 +455,7 @@ def get_path_matrix(graph, key='value'):
         sink = step[1] # stop node
         edge = step[2]
         weight = graph.get_edge_data(source, sink, edge)[key] # edge weight
+        print(f'weight {weight}')
         path.append((source, sink, *weight))
     return np.array(path)
 
@@ -541,6 +549,7 @@ def get_rank(graph, key='value'):
     Returns the rank of the object graph.
     """
     # Determine the eulerian path.
+    print(f'graph, key {graph} {key}')
     path_matrix = get_path_matrix(graph, key)
     # Find the cycles.
     node_cycles, edge_cycles = get_cycles(path_matrix)
@@ -550,6 +559,13 @@ def get_rank(graph, key='value'):
     rank = get_rank_from_edge_cycle_matrix(edge_cycle_matrix)
     return rank
 
+
+#TODO The complement rank could be implemented here so we get both the rank
+#  and the complement rank. Then we can use that information to give the
+#  direction to the containment graph. Maybe it would be best to create
+#  a small function which does the same for the complement and run it in the 
+#  get_subgraph_ranks function. Then the ranks contain two ranks per label
+#  namely its own rank (first) and its complement's rank (second).
 
 def get_subgraph_ranks(bridges):
     """
@@ -590,7 +606,7 @@ def get_all_ranks(bridges, unique_labels):
     ranks, covered_labels = get_subgraph_ranks(bridges)
     ranks = add_zero_ranks(ranks, covered_labels, unique_labels)
     return ranks
-
+    
 
 def get_combined_ranks(label_array, bridges, inv_label_array, inv_bridges):
     """
@@ -1119,35 +1135,160 @@ def get_containers(atomgroup, resolution=0.5, blur_amount=1, plotting=False):
     print(f'Creating voxel masks with a resolution of {resolution}...')
     # Creating the voxels objects.
     all_voxels, voxels, inv_voxels = create_voxels(atomgroup, resolution)
-    print(f'Blurring voxel masks with {blur_amount}...')
+    # Defining the PBC settings
+    nbox = voxels.nbox
+    print(f'Blurring voxel masks {blur_amount} times...')
     # Blurring the density and anti desntiy voxels.
     voxels, inv_voxels = blur_voxels(voxels, inv_voxels, blur_amount)
     print(f'Non PBC-labeling...')
     # Non PBC-voxel connected component labeling (in place).
     voxels, inv_voxels = label_voxels(voxels, inv_voxels, structure=np.ones((3,3,3)))
     
+    #TODO NEW CODE FOR TESTING THE AXIOMATIC APPROACH
+    # Merge the non-PBC labeleling of the voxels and the inv_voxels
+    combined_label_array, combined_labels = get_combined_label_array(voxels.grid, inv_voxels.grid)
+    # Get all the contacts between the non-PBC labels
+    print(f'Calculating the contacts...')
+    all_pairs, density_pairs, inv_density_pairs = get_pairs(combined_label_array, voxels.nbox)
+    # Some dirty ad-hoc Voxel class construction for the get_bridges function
+    #  expects a Voxel object instead of the mask and nbox seperately.
+    voxels_combined_label_array = VoxelsFromVoxels(combined_label_array, nbox)
+    # Obtain the global bridges between all non-PBC labels
+    print(f'Obtaining bridges...')
+    all_bridges = get_bridges(voxels_combined_label_array)
+    
+    # Add the contacts to the bridges.
+    def add_contacts_to_bridges(all_bridges, all_pairs):
+        """
+        Adds all the contacts to the bridegs with a 0,0,0 displacement
+        if the contact is not already an edge in the bridges.
+        """
+        all_unique_edges = set([tuple(pair[:2]) for pair in all_bridges.graph.edges()])
+        print(f'edges {all_unique_edges}')
+        # This is probably redundent, but better safe than sorry.
+        all_unique_pairs = set([tuple(pair) for pair in all_pairs])
+        print(f'pairs {all_unique_pairs}')
+        for pair in all_unique_pairs:
+            #TODO Check if this logic makes sense!
+            # I did this if statement to make the output the same as before
+            #  but I think we do actually need to have the contacts in here
+            #  even if there is already a contact between the two that has
+            #  a shift?
+            #if pair not in all_unique_edges:
+            all_bridges.graph.add_edge(pair[0], pair[1], label='(0,0,0)', value=0, cost=(0,0,0))
+            all_bridges.graph.add_edge(pair[1], pair[0], label='(0,0,0)', value=0, cost=(0,0,0))
+            #else:
+            #    print(f'{pair} was already in the list.')
+        return all_bridges
+    all_bridges = add_contacts_to_bridges(all_bridges, all_pairs)
+    output_dict['all_bridges'] = all_bridges
+    
+    # Generate the subgraphs of the bridges for the real and inv bridges
+    #  (positive and negative nodes).
+    # Create undirected view
+    def get_all_subgraphs(all_bridges):
+        """
+        Returns the real and inv bridges graphs.
+        """
+        # create generator for the positive nodes
+        nodes = (
+            node
+            for node
+            in all_bridges.nodes()
+            if node > 0
+        )
+        real_subgraph = all_bridges.subgraph(nodes)
+        
+        # create generator for the negative nodes
+        nodes = (
+            node
+            for node
+            in all_bridges.nodes()
+            if node < 0
+        )
+        inv_subgraph = all_bridges.subgraph(nodes)
+        return real_subgraph, inv_subgraph
+    
+    bridges, inv_bridges = get_all_subgraphs(all_bridges.graph)
+    bridges = Bridges(bridges)
+    inv_bridges = Bridges(inv_bridges)
+    output_dict['bridges'] = bridges
+    output_dict['inv_bridges'] = inv_bridges
+    
+    # Calculate all ranks and the ranks of the complements.
+    print(f'Calculating the ranks...')
+    def get_subgraph_complement_ranks(all_bridges, bridges, inv_bridges):
+        """
+        Returns a dictionary with the sorted subgraph nodes as keys and the ranks as values.
+        The covered labels are also returned.
+        """
+        all_nodes = set(all_bridges.graph.nodes)
+        ranks = {}
+        complement_ranks = {}
+        covered_labels = set()
+        subgraphs = [bridges.graph.subgraph(c) for c in nx.connected_components(nx.Graph(bridges.graph))]
+        inv_subgraphs = [inv_bridges.graph.subgraph(c) for c in nx.connected_components(nx.Graph(inv_bridges.graph))]
+        subgraphs += inv_subgraphs
+        for idx, subgraph in enumerate(subgraphs):
+            rank = get_rank(subgraph, key='cost')
+            nodes = tuple(sorted(subgraph.nodes))
+            complement_subgraph = all_bridges.graph.subgraph(all_nodes - set(subgraph.nodes))
+            #nx.draw_networkx(complement_subgraph)
+            #plt.show()
+            complement_rank = get_rank(complement_subgraph, key='cost')
+            for node in nodes:
+                covered_labels.add(node)
+            ranks[nodes] = rank, complement_rank
+        return ranks, covered_labels
+    
+    all_ranks, covered_labels = get_subgraph_complement_ranks(all_bridges, bridges, inv_bridges)
+    print(f'all_ranks {all_ranks}')
+    print(f'covered_labels {covered_labels}')
+    
+    def check_contained(all_ranks):
+        """
+        Returns for each subgraph in all_ranks if it is contained as a dict with True or False.
+        """
+        is_contained = {}
+        for nodes, (rank, complement_rank) in all_ranks.items():
+            print(nodes)
+            if rank < complement_rank:
+                is_contained[nodes] = True
+            else:
+                is_contained[nodes] = False
+        return is_contained
+    
+    is_contained = check_contained(all_ranks)
+    print(f'{is_contained}')
+                
+    
+    
+    
+    #### END OF CHANGES AXIOMATIC APPROACH
+    
     output_dict['all_voxels'] = all_voxels
     output_dict['voxels'] = voxels
     output_dict['inv_voxels'] = inv_voxels
     
-    print(f'Obtaining bridges...')
+    #print(f'Obtaining bridges...')
     # Obtain the bridges due to PBC (expensive).
-    bridges = get_bridges(voxels)
-    inv_bridges = get_bridges(inv_voxels)
-    print(f'Calculating the ranks...')
+    #bridges = get_bridges(voxels)
+    #inv_bridges = get_bridges(inv_voxels)
+    #print(f'Calculating the ranks...')
     # Calculating the rank for the sorting of periodic opbjects.
     all_ranks = get_combined_ranks(voxels.grid, bridges, inv_voxels.grid, inv_bridges)
     
-    output_dict['bridges'] = bridges
-    output_dict['inv_bridges'] = inv_bridges
+    #output_dict['bridges'] = bridges
+    #output_dict['inv_bridges'] = inv_bridges
+    #
     output_dict['all_ranks'] = all_ranks
     
-    print(f'The ranks are {all_ranks}')
+    #print(f'The ranks are {all_ranks}')
     # Combining the density and inv_density labels.
     combined_label_array, combined_labels = get_combined_label_array(voxels.grid, inv_voxels.grid)
-    print(f'Calculating the pairs...')
+    #print(f'Calculating the pairs...')
     # Calculting all label contacts in the combined array.
-    all_pairs, density_pairs, inv_density_pairs = get_pairs(combined_label_array, voxels.nbox)
+    #all_pairs, density_pairs, inv_density_pairs = get_pairs(combined_label_array, voxels.nbox)
     print(f'Relabeling taking PBC into account...')
     # Combining fragments into objects
     label_subgraphs = generate_subgraphs(density_pairs)
