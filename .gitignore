@@ -1,8 +1,11 @@
 */__pycache__/*
-src/mdvcontainment/__pycache__/*
+mdvcontainment/__pycache__/*
+*.ipynb_checkpoints
 *mdvcontainment.egg-info
 *cpython
-usecases
-test_data
-old
-example_notebooks
+build
+*.c
+*.so
+examples/notebooks/*.pdb
+examples/notebooks/*.gro
+examples/structures/large
