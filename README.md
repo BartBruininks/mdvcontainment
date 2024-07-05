@@ -62,7 +62,7 @@ import MDAnalysis as mda
 from mdvcontainment import Containment
 
 # Import the structure file
-path = 'your_structure.gro'
+path = 'your_structure.pdb' # Or any MDA supported structures file
 universe = mda.Universe(path)
 selection_string = 'not resname W WF ION' # Useful for CG Martini
 selection = universe.select_atoms(selection_string)
