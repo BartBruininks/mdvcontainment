@@ -3,7 +3,9 @@ Robust and fast containment charaterization for (periodic) point clouds and voxe
 
 **M**olecular **D**ynamics **V**oxel **Containment** yields a robust characterization of the inside and outside hierarchy for point clouds in periodic spaces of dimensionality three or lower (e.g. R^3/Z^3).
 
-Using an MDAnalysis atomgroup, bead selection and resolution, a density grid is created. This density grid is segmented using connected components and graph logic is utilized to solve the topological identification of inside and outside. This algorithm is applicable to both periodic and non-periodic segments. The final output is a set of Directed Acyclic Graphs (DAGs) running from the largest container to the smallest (from outside inwards in graph space). This containment logic can then be used to analyse or manipulate the systems.
+Using an MDAnalysis atomgroup, bead selection and resolution, a density grid is created. This density grid is segmented using connected components and graph logic is utilized to solve the topological identification of containment (insides and outsides). The final output is a set of Directed Acyclic Graphs (DAGs) running from the largest container to the smallest (from outside inwards in graph space). This containment logic can then be used to analyse or manipulate the systems.
+
+ *Any complex configuration of periodic/nonperiodic segments is supported by this algorithm in a robust, unambiguous, deterministic and rot+trans invarient (up to voxel discretization) manner.*
 
 <p align="center">
   <img src="https://github.com/BartBruininks/mdvcontainment/assets/1488903/be5fff63-a967-47c2-a933-a3ecb7dcd5de">
@@ -17,7 +19,7 @@ $~$
   <img src="https://github.com/BartBruininks/mdvcontainment/assets/1488903/da3d8cdb-682f-4fe3-b7dc-bced188b390d">
 </p>
  
-**Figure 2 | A periodic hollow cylinder in solution**. The cylinder (segment 1) splits the solution into two segments (segment -2, -1), the solid cylinder inside the hollow cylinder (segment -1), and all of the space outside of the cylinder (segment -2). Both cylindrical segments (1 and -1) are *contained* by the solvent segment (-2). Any complex configuration of periodic/nonperiodic segments is supported by this algorithm in a robust, unambiguous and deterministic manner.
+**Figure 2 | A periodic hollow cylinder in solution**. The cylinder (segment 1) splits the solution into two segments (segment -2, -1), the solid cylinder inside the hollow cylinder (segment -1), and all of the space outside of the cylinder (segment -2). Both cylindrical segments (1 and -1) are *contained* by the solvent segment (-2).
 
 $~$
 
