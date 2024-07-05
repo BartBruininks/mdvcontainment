@@ -45,7 +45,11 @@ git clone git@github.com:BartBruininks/mdvcontainment.git
 cd mdvcontainment
 pip install .
 ```
-# Minimal example
+
+> [!IMPORTANT]
+> If you need any help with MDVContainment or have ideas for future functionalities, please raise an issue!
+
+# Minimal example CG Martini
 <details open>
 <summary>Input</summary>
 <br>
@@ -84,5 +88,9 @@ Containment Graph with 3 components (component: nvoxels):
 
 
 # Extensive examples
-For worked examples in jupyter notebooks, take a look at the `examples/notebooks` folder. Some example structure files are added under examples/structures.
+For worked examples in jupyter notebooks, take a look at the [examples/notebooks](https://github.com/BartBruininks/mdvcontainment/tree/main/examples/notebooks) folder. Some example structure files are added under [examples/structures](https://github.com/BartBruininks/mdvcontainment/tree/main/examples/structures).
+
+
+
+
 
