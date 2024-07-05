@@ -9,7 +9,7 @@ Using an MDAnalysis atomgroup, bead selection and resolution, a density grid is 
 
 > [!NOTE]
 > MDVContainment has had a rework offering much improved performance and quality. However,
-> here is the [legacy](https://github.com/BartBruininks/mdvcontainment/tree/legacy) version if you insist in using it.
+> here is the [legacy](https://github.com/BartBruininks/mdvcontainment/tree/legacy) version if you insist on using it.
 
 <p align="center">
   <img src="https://github.com/BartBruininks/mdvcontainment/assets/1488903/be5fff63-a967-47c2-a933-a3ecb7dcd5de">
