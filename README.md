@@ -8,7 +8,7 @@ Using an MDAnalysis atomgroup, bead selection and resolution, a density grid is 
  *Any complex configuration of (non)nonperiodic segments is supported by this algorithm in a fast, robust, unambiguous, deterministic and rot+trans invarient (up to voxel discretization) manner.*
 
 > [!NOTE]
-> MDVContainment has had a rework offering much improved performance and quality. However
+> MDVContainment has had a rework offering much improved performance and quality. However,
 > here is the [legacy](https://github.com/BartBruininks/mdvcontainment/tree/legacy) version if you insist in using it.
 
 <p align="center">
