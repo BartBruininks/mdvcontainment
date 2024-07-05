@@ -19,7 +19,7 @@ $~$
   <img src="https://github.com/BartBruininks/mdvcontainment/assets/1488903/da3d8cdb-682f-4fe3-b7dc-bced188b390d">
 </p>
  
-**Figure 2 | A periodic hollow cylinder in solution**. The cylinder (segment 1) splits the solution into two segments (segment -2, -1), the solid cylinder inside the hollow cylinder (segment -1), and all of the space outside of the cylinder (segment -2). Both cylindrical segments (1 and -1) are *contained* by the solvent segment (-2).
+**Figure 2 | A periodic hollow cylinder in solution**. The cylinder (segment 1) splits the solution into two segments (segment -2, -1), the solid cylinder inside the hollow cylinder (segment -1), and all of the space outside of the cylinder (segment -2). Both cylindrical segments (1 and -1) are said to be *contained* by the solvent segment (-2), although only the hollow cylinder (1) is a child of the solvent segment (-2).
 
 $~$
 
