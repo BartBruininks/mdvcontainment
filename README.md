@@ -5,7 +5,7 @@ Robust and fast containment charaterization for (periodic) point clouds and voxe
 
 Using an MDAnalysis atomgroup, bead selection and resolution, a density grid is created. This density grid is segmented using connected components and graph logic is utilized to solve the topological identification of containment (insides and outsides). The final output is a set of Directed Acyclic Graphs (DAGs) running from the largest container to the smallest (from outside inwards in graph space). This containment logic can then be used to analyse or manipulate the systems.
 
- *Any complex configuration of periodic/nonperiodic segments is supported by this algorithm in a robust, unambiguous, deterministic and rot+trans invarient (up to voxel discretization) manner.*
+ *Any complex configuration of (non)nonperiodic segments is supported by this algorithm in a fast, robust, unambiguous, deterministic and rot+trans invarient (up to voxel discretization) manner.*
 
 <p align="center">
   <img src="https://github.com/BartBruininks/mdvcontainment/assets/1488903/be5fff63-a967-47c2-a933-a3ecb7dcd5de">
