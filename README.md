@@ -1,19 +1,23 @@
-# MDVContainment — OPEN BETA —
+# MDVContainment—OPEN BETA
 Robust and fast containment charaterization for periodic point clouds and voxel masks.
 
 **M**olecular **D**ynamics **V**oxel **Containment** yields a robust characterization of the inside and outside hierarchy for point clouds in periodic spaces of dimensionality three or lower (e.g. R^3/Z^3).
 
 Using an MDAnalysis atomgroup, bead selection and resolution, a density grid is created. This density grid is segmented using connected components and graph logic is utilized to solve the topological identification of inside and outside. This algorithm is applicable to both periodic and non-periodic segments. The final output is a set of Directed Acyclic Graphs (DAGs) running from the largest container to the smallest (from outside inwards in graph space). This containment logic can then be used to analyse or manipulate the systems.
 
-![containment_graph](https://private-user-images.githubusercontent.com/1488903/258806872-be5fff63-a967-47c2-a933-a3ecb7dcd5de.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MjAxNzcwOTYsIm5iZiI6MTcyMDE3Njc5NiwicGF0aCI6Ii8xNDg4OTAzLzI1ODgwNjg3Mi1iZTVmZmY2My1hOTY3LTQ3YzItYTkzMy1hM2VjYjdkY2Q1ZGUucG5nP1gtQW16LUFsZ29yaXRobT1BV1M0LUhNQUMtU0hBMjU2JlgtQW16LUNyZWRlbnRpYWw9QUtJQVZDT0RZTFNBNTNQUUs0WkElMkYyMDI0MDcwNSUyRnVzLWVhc3QtMSUyRnMzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNDA3MDVUMTA1MzE2WiZYLUFtei1FeHBpcmVzPTMwMCZYLUFtei1TaWduYXR1cmU9MzdkOGEwMmZhM2Y1YTJlZTliMzIxODlkODYyZjE1N2RiMjE5NjQyMjBiOWQ3MGEyOTE3MWM4NTdkODRmMjE5ZCZYLUFtei1TaWduZWRIZWFkZXJzPWhvc3QmYWN0b3JfaWQ9MCZrZXlfaWQ9MCZyZXBvX2lkPTAifQ.uQU3wqWx75GbnFlDRe7JkJ1HnFcD3gKCPuWG1fHSngQ)
+<p align="center">
+  <img src="https://github.com/BartBruininks/mdvcontainment/assets/1488903/be5fff63-a967-47c2-a933-a3ecb7dcd5de">
+</p>
 
-**Figure 1 | Containment hierarchy in self-assembled acyl chain bicelles.** The main solvent (component -2) is the most outer component in this system. It containes three non-periodic components (seg. 1, 2, 3), where component 1 is split over the periodic boundary. Component 3 contains a piece of inner solvent (component -1).
+**Figure 1 | Containment hierarchy in self-assembled acyl chain bicelles.** The main solvent (segment -2) is the most outer segment in this system. It containes three non-periodic labels (seg. 1, 2, 3), where segment 1 is split over the periodic boundary. Segment 3 *contains* a piece of inner solvent (segment -1).
 
 $~$
 
-![cylinder_containment](https://github.com/BartBruininks/mdvcontainment/assets/1488903/da3d8cdb-682f-4fe3-b7dc-bced188b390d)
+<p align="center">
+  <img src="https://github.com/BartBruininks/mdvcontainment/assets/1488903/da3d8cdb-682f-4fe3-b7dc-bced188b390d">
+</p>
  
-**Figure 2 | A periodic hollow cylinder in solution**. The cylinder (component 1) splits the solution into two components (component -2, -1), the solid cylinder inside the hollow cylinder (component -1), and all of the space outside of the cylinder (component -2). Any complex configuration of periodic/nonperiodic objects is supported by this algorithm in a robust manner.
+**Figure 2 | A periodic hollow cylinder in solution**. The cylinder (segment 1) splits the solution into two segments (segment -2, -1), the solid cylinder inside the hollow cylinder (segment -1), and all of the space outside of the cylinder (segment -2). Any complex configuration of periodic/nonperiodic segments is supported by this algorithm in a robust manner.
 
 $~$
 
