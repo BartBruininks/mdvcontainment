@@ -9,7 +9,7 @@ Using an MDAnalysis atomgroup, bead selection and resolution, a density grid is 
   <img src="https://github.com/BartBruininks/mdvcontainment/assets/1488903/be5fff63-a967-47c2-a933-a3ecb7dcd5de">
 </p>
 
-**Figure 1 | Containment hierarchy in self-assembled acyl chain bicelles.** The main solvent (segment -2) is the most outer segment in this system. It containes three non-periodic labels (seg. 1, 2, 3), where segment 1 is split over the periodic boundary. Segment 3 *contains* a piece of inner solvent (segment -1).
+**Figure 1 | Containment hierarchy in self-assembled acyl chain bicelles.** The main solvent (segment -2) is the most outer segment in this system. It containes three non-periodic segments (1, 2, 3), where segment 1 is split over the periodic boundary. Segment 3 *contains* a piece of inner solvent (segment -1).
 
 $~$
 
