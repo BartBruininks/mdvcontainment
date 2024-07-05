@@ -76,8 +76,7 @@ print(containment)
 </details>
 
 > [!NOTE]
-> For atomistic structures `closure=False` should be used and the `selection_string`
-> should be changed accordingly.
+> For atomistic structures `closure=False`.
 
 <details>
 <summary>Output</summary>
