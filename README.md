@@ -38,7 +38,7 @@ Direct install into the current python environment libraries:
 pip install git+https://github.com/BartBruininks/mdvcontainment
 ```
 
-Create a folder in a custom location to easily find the examples, or modify the code:
+Create a folder in a custom location to have access to the examples folder:
 
 ```
 git clone git@github.com:BartBruininks/mdvcontainment.git
@@ -46,7 +46,10 @@ cd mdvcontainment
 pip install .
 ```
 # Minimal example
-### Input
+<details open>
+<summary>Input</summary>
+<br>
+
 ```python
 # `minimal_example.py` for a CG Martini structure file
 # Import the required libraries
@@ -65,14 +68,20 @@ containment = Containment(selection, resolution=0.5, closure=True)
 # Show the containment graph with voxel counts
 print(containment)
 ```
+</details>
 
-### Output
+<details>
+<summary>Output</summary>
+<br>
+
 ```
 Containment Graph with 3 components (component: nvoxels):
 └── [-2: 54461]
     └── [1: 15403]
         └── [-1: 5136]
 ```
+</details>
+
 
 # Extensive examples
 For worked examples in jupyter notebooks, take a look at the `examples/notebooks` folder. Some example structure files are added under examples/structures.
