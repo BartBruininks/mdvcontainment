@@ -83,7 +83,7 @@ print(containment)
 
 > [!NOTE]
 > For atomistic structures use `closure=False`. Take a look at
-> [closing](https://en.wikipedia.org/wiki/Closing_(morphology)) (link to wikipedia) to lean more about what it does.
+> [closing](https://en.wikipedia.org/wiki/Closing_(morphology)) (link to wikipedia) to learn more about what it does.
 
 <details>
 <summary>Output</summary>
