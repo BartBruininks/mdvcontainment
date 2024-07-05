@@ -17,7 +17,7 @@ $~$
   <img src="https://github.com/BartBruininks/mdvcontainment/assets/1488903/da3d8cdb-682f-4fe3-b7dc-bced188b390d">
 </p>
  
-**Figure 2 | A periodic hollow cylinder in solution**. The cylinder (segment 1) splits the solution into two segments (segment -2, -1), the solid cylinder inside the hollow cylinder (segment -1), and all of the space outside of the cylinder (segment -2). Both segments 1 and -1 are `contained` by segment -2. Any complex configuration of periodic/nonperiodic segments is supported by this algorithm in a robust, unabiguous and deterministic manner.
+**Figure 2 | A periodic hollow cylinder in solution**. The cylinder (segment 1) splits the solution into two segments (segment -2, -1), the solid cylinder inside the hollow cylinder (segment -1), and all of the space outside of the cylinder (segment -2). Both segments 1 and -1 are `contained` by segment -2. Any complex configuration of periodic/nonperiodic segments is supported by this algorithm in a robust, unambiguous and deterministic manner.
 
 $~$
 
