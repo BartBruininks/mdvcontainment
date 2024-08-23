@@ -3,9 +3,11 @@ from pathlib import Path
 import MDAnalysis as mda
 import numpy as np
 
-
-def voxels_to_gro(path: Path, arr, scale: float = 1.0, place_in_center: bool = True):
-    scale *= 10.0  # We go from Å to nm scale.
+def voxels_to_gro(path: Path, arr, scale: float = 1.0, place_in_center: bool = True, universe = None):
+    if universe is None:
+        scale *= 10.0  # We go from Å to nm scale.
+    else:
+        scale = universe.dimensions[:3] / arr.shape
     n_atoms = np.prod(arr.shape)
 
     # Set up our output universe.
