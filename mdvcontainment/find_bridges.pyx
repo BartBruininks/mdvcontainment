@@ -10,16 +10,16 @@ def pbc_wrap(cnp.ndarray[cnp.int32_t, ndim=1] positions, cnp.ndarray[cnp.float64
     cdef cnp.ndarray[cnp.float64_t, ndim=1] div = np.zeros(n, dtype=np.float64)
     cdef cnp.ndarray[cnp.float64_t, ndim=1] mod = np.zeros(n, dtype=np.float64)
     cdef cnp.ndarray[cnp.float64_t, ndim=1] wrapped = np.zeros(n, dtype=np.float64)
-    
+
     for i in range(n):
         div[i], mod[i] = divmod(positions[i], nbox[i, i])
-    
+
     wrapped = np.mod(mod - np.dot(div, nbox), nbox.diagonal())
     return np.round(div).astype(np.int32), np.round(wrapped).astype(np.int32)
 
 def find_boundary_voxels(cnp.ndarray[cnp.int32_t, ndim=3] labeled_grid):
     cdef cnp.ndarray[cnp.int32_t, ndim=3] grid = labeled_grid
-    
+
     # Find boundary voxels at x=0.
     relevant_voxels_x_indices = np.nonzero(grid[0, :, :])
     relevant_voxels_x = np.column_stack((np.zeros(relevant_voxels_x_indices[0].shape, dtype=np.int32), relevant_voxels_x_indices[0], relevant_voxels_x_indices[1]))
@@ -72,7 +72,7 @@ def find_bridges(labeled_grid, nbox):
     z_shifts[6] = ( 1, -1, -1)
     z_shifts[7] = ( 1,  0, -1)
     z_shifts[8] = ( 1,  1, -1)
-    
+
     cdef set contacts = set()
     cdef int x_max = labeled_grid.shape[0]
     cdef int y_max = labeled_grid.shape[1]
@@ -81,8 +81,8 @@ def find_bridges(labeled_grid, nbox):
     cdef int x, y, z, shift_x, shift_y, shift_z, nx, ny, nz
     cdef int divx, divy, divz
     cdef int current_label, neighbor_label
-    cdef cnp.ndarray[cnp.int_t, ndim=1] positions
-    cdef cnp.ndarray[cnp.int_t, ndim=2] relevant_voxels
+    cdef cnp.ndarray[cnp.int64_t, ndim=1] positions
+    cdef cnp.ndarray[cnp.int64_t, ndim=2] relevant_voxels
 
     relevant_voxels_xyz = find_boundary_voxels(labeled_grid)
 
@@ -98,7 +98,7 @@ def find_bridges(labeled_grid, nbox):
                 shifts = y_shifts
             else:
                 shifts = z_shifts
-            
+
             for shift in shifts:
                 # Add the local shift to the boundary voxel.
                 nx, ny, nz = x + shift[0], y + shift[1], z + shift[2]
