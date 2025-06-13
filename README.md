@@ -1,5 +1,5 @@
 # MDVContainment—OPEN BETA
-Robust and fast containment charaterization for (periodic) point clouds and voxel masks for binary labeling.
+Robust and fast containment charaterization for (periodic) point clouds and voxel masks for binary density labeling.
 
 **M**olecular **D**ynamics **V**oxel **Containment** yields a robust characterization of the inside and outside hierarchy for point clouds in periodic spaces of dimensionality three or lower (e.g. R^3/Z^3).
 
