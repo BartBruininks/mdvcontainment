@@ -1,5 +1,5 @@
 # MDVContainment—OPEN BETA
-Robust and fast containment charaterization for (periodic) point clouds and voxel masks.
+Robust and fast containment charaterization for (periodic) point clouds and voxel masks for binary labeling.
 
 **M**olecular **D**ynamics **V**oxel **Containment** yields a robust characterization of the inside and outside hierarchy for point clouds in periodic spaces of dimensionality three or lower (e.g. R^3/Z^3).
 
@@ -10,6 +10,10 @@ Using an MDAnalysis atomgroup, bead selection and resolution, a density grid is 
 > [!NOTE]
 > MDVContainment has had a rework offering much improved performance and quality. However,
 > here is the [legacy](https://github.com/BartBruininks/mdvcontainment/tree/legacy) version if you insist on using it.
+
+> [!NOTE]
+> MDVContainment is undergoing a second major overhaul boosting performance by about 10x and supporting integer labeling to handle e.g. MDVLeafletSegmentation labeling!
+> When the code is ready to be tested a branch will be created called `integer_containment` which will probably become the new main branch over time.
 
 <p align="center">
   <img src="https://github.com/BartBruininks/mdvcontainment/assets/1488903/be5fff63-a967-47c2-a933-a3ecb7dcd5de">
