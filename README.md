@@ -32,7 +32,19 @@ $~$
 $~$
 
 # Citation and License
-This work is currently in the process of publication, the DOI of the mansucript will be placed here once it is available. 
+```
+@article {Bruininks2025.08.06.668936,
+	author = {Bruininks, Bart M. H. and Vattulainen, Ilpo},
+	title = {Classification of containment hierarchy for point clouds in periodic space},
+	elocation-id = {2025.08.06.668936},
+	year = {2025},
+	doi = {10.1101/2025.08.06.668936},
+	publisher = {Cold Spring Harbor Laboratory},
+	URL = {https://www.biorxiv.org/content/early/2025/08/09/2025.08.06.668936},
+	eprint = {https://www.biorxiv.org/content/early/2025/08/09/2025.08.06.668936.full.pdf},
+	journal = {bioRxiv}
+}
+```
 
 Please cite this work if you use it for scientific publications. It helps me to continue to work on this kind of software, thanks! On that note, if you would offer me a job to work on this, I would take your offer very seriously.
 
