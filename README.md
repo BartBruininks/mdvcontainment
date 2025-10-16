@@ -117,6 +117,8 @@ Containment Graph with 3 components (component: nvoxels):
 # Extensive examples
 For worked examples in jupyter notebooks, take a look at the [examples/notebooks](https://github.com/BartBruininks/mdvcontainment/tree/main/examples/notebooks) folder. Some example structure files are added under [examples/structures](https://github.com/BartBruininks/mdvcontainment/tree/main/examples/structures).
 
+I still need to add this tutorial to this repo, but for now a very detailed and up to date tutorial can be found on the cgmartini website [here](https://cgmartini.nl/docs/tutorials/Martini3/MDVContainment/).
+
 
 
 
