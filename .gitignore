@@ -4,6 +4,7 @@ mdvcontainment/__pycache__/*
 *mdvcontainment.egg-info
 *cpython
 build
+dist
 *.c
 *.so
 examples/notebooks/*.pdb
