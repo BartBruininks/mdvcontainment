@@ -123,7 +123,7 @@ class Containment():
             nodes = self.voxel_containment.get_downstream_nodes(nodes)
         # Uses the precalculated components per atom index in the tempfactors.
         if self._betafactors:
-            mask = np.isin(self.universe.atoms.tempfactors, nodes)
+            mask = np.isin(self.universe.tempfactors, nodes)
             atomgroup = self.universe.atoms[mask]
         # Fallback to using the voxel mapping if the betafactors
         #  have not been set for performance reasons. This is useful
