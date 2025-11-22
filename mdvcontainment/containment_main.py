@@ -92,7 +92,7 @@ def calc_containment_graph(boolean_grid, nbox, verbose=False, write_structures=F
 
     if not slab:
         # Find all bridges (contacts between labels over PBC).
-        bridges = find_bridges(nonp_labeled_grid, nbox)
+        bridges = find_bridges(nonp_labeled_grid)
 
     # Generate the label contact graph with bridge annotation.
     if not slab:

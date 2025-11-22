@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='mdvcontainment',
-    version='0.1.2',
+    version='0.1.3',
     packages=['mdvcontainment'],
     author='BMH Bruininks',
     description = "Containment analysis for (periodic) point clouds.",
