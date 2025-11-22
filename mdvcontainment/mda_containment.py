@@ -145,7 +145,7 @@ class Containment():
             betafactors[atom_indices] = node
 
         try:
-            print('WARNING: beta/tempfactors already set in the universe, and will be overwritten with the component ids.')
+            print('NOTE: beta/tempfactors already set in the universe, and will be overwritten with the component ids.')
             self.unverse.tempfactors = betafactors
         except AttributeError:
             self.universe.add_TopologyAttr(
