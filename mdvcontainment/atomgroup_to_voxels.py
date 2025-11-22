@@ -92,10 +92,6 @@ def voxelate_atomgroup(atomgroup, resolution, hyperres=False, max_offset=0.05):
 
     transform = np.linalg.inv(box) @ nbox                 # transformation to voxel indices
     fraxels = atomgroup.positions @ transform         
-    #if hyperres:
-        # Blur coordinates 
-        #neighbors = hyperres * (np.mgrid[-1:2, -1:2, -1:2]).T.reshape((1, -1, 3))
-        #voxels = (voxels[:, None, :] + neighbors).reshape((-1, 3))
     voxels = np.floor(fraxels).astype(int)
     fraxels -= voxels
     
@@ -153,7 +149,7 @@ def create_voxels(atomgroup, resolution, hyperres=False, max_offset=0.05, return
     """
     Returns 3 voxel objects:
     
-    all_voxels, voxels, inv_voxels. Where voxels containt alls the atoms in the atomgroup, all_voxels
+    all_voxels, voxels, inv_voxels. Where voxels contain all the atoms in the atomgroup, all_voxels
     contains all atoms in the universe belonging to the atomgroup. Inv_voxels contains all atoms which 
     are in the universe of the atomgroup, but not in the atomgroup.
     """

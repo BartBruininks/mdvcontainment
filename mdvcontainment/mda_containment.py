@@ -20,9 +20,9 @@ class Containment():
 
         Closure applies binary dilation and erosion, often called
         binary closure. This closes small gaps in the voxel mask.
-        This is useually required for CG Martini simulations when,
+        This is usually required for CG Martini simulations when,
         using a resolution of 0.5 nm. For a resolution of 1 nm it
-        is not required and disadviced.
+        is not required and disadvised.
 
         Slab can be set to 'True' to process slices of a larger whole,
         this will disable any treatment of PBC.
@@ -41,7 +41,7 @@ class Containment():
         Return counts is set to 'True' by default, this counts the amount of voxels per component
         this can be useful to get an estimate for the volume of a component.
 
-        All voxel logic (selecting by comopnent etc) can be found under self.voxel_containment.
+        All voxel logic (selecting by component etc) can be found under self.voxel_containment.
         """
         self.atomgroup = atomgroup
         self.resolution = resolution
@@ -93,7 +93,7 @@ class Containment():
 
     def get_atomgroup_from_voxel_positions(self, voxels):
         """
-        Converts the voxels in a voxel arrag back to an atomgroup.
+        Converts the voxels in a voxel array back to an atomgroup.
         
         Takes a voxel position array and uses the voxel2atom mapping with respect to the
         atomgroup.universe to generate a corresponding atomgroup with the voxel 
@@ -103,7 +103,7 @@ class Containment():
         """
         if self._no_mapping:
             raise ValueError("Voxel to atomgroup transformations are not possible when using the 'no_mapping' flag.\nno_mapping is only useful to speed up generating the voxel level containment,\nfor it does not create breadcrumps to work its way back to the atomgroup.")
-        # It is not important that every index only occurs onec,
+        # It is not important that every index only occurs once,
         # as long as each atom is only selected once.
         indices = { idx for v in voxels for idx in self.voxel2atom[tuple(v)] }
         return self.universe.atoms[list(indices)]
