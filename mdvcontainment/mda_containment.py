@@ -136,19 +136,25 @@ class Containment():
 
     def set_betafactors(self):
         """
-        Sets the component id per atom in the beta factors column.
+        Sets the component id per atom in the beta factors column of the universe.
         """
         betafactors = np.zeros(len(self.universe.atoms))
-
         all_nodes = self.voxel_containment.nodes
+        atom_voxels, atom_indices = self.voxel2atom
+        
         for node in all_nodes:
             voxels = self.voxel_containment.get_voxel_positions(node)
-            atom_indices = list({ idx for v in voxels for idx in self.voxel2atom[tuple(v)] })
-            betafactors[atom_indices] = node
-
+            voxels_array = np.asarray(voxels)
+            
+            # Vectorized comparison to find atoms in these voxels
+            mask = (atom_voxels[:, None] == voxels_array[None, :]).all(axis=2).any(axis=1)
+            selected_indices = atom_indices[mask]
+            
+            betafactors[selected_indices] = node
+        
         try:
             print('NOTE: beta/tempfactors already set in the universe, and will be overwritten with the component ids.')
-            self.unverse.tempfactors = betafactors
+            self.universe.tempfactors = betafactors 
         except AttributeError:
             self.universe.add_TopologyAttr(
                 mda.core.topologyattrs.Tempfactors(betafactors))
