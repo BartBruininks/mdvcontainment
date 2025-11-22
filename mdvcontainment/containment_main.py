@@ -19,12 +19,12 @@ def nonp_is_contained(labeled_grid, nonp_unique_labels, write_structures=False):
     Returns containment status for the slab case and the component ranks.
     
     Each label is set to be either contained or not, based on the following
-    critera:
-        1) The relevent dimensions for the outside are picked dynamically
+    criteria:
+        1) The relevant dimensions for the outside are picked dynamically
             based on is set to the two largest axis in the shape of the
             input array. The thinnest dimension is assumed to be the slice
             thickness.
-        2) Any label which has a voxel in the relevent hollow cylinder
+        2) Any label which has a voxel in the relevant hollow cylinder
             formed by the minimal and maximal positions of the two picked
             dimensions is regarded an absolute outside.    
     """
