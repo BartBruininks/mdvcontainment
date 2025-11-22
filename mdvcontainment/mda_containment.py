@@ -45,7 +45,7 @@ class Containment():
         """
         self.atomgroup = atomgroup
         self.resolution = resolution
-        self.closure = closure
+        self.closing = closing
         self._slab = slab
         self._max_offset = max_offset
         self._verbose = verbose
