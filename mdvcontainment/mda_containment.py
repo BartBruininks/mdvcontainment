@@ -54,6 +54,10 @@ class Containment():
         self._return_counts = return_counts
         self._betafactors = betafactors
 
+        # Check for compatibility in settings
+        if self._no_mapping and self._betafactors:
+            raise ValueError("betafactors='True' requires no_mapping='False'.")
+
         self.universe = atomgroup.universe
         self.negative_atomgroup = self.universe.atoms - self.atomgroup
         self.boolean_grid, self.voxel2atom, self.nbox = self._voxelize_atomgroup()
@@ -61,11 +65,10 @@ class Containment():
         self.nbox = self.nbox.astype(np.float64)
         self.voxel_containment = VoxelContainment(
             self.boolean_grid, self.nbox, verbose=self._verbose, write_structures=self._write_structures, slab=self._slab, counts=self._return_counts)
-        # Check for compatibility in settings
-        if self._no_mapping and self._betafactors:
-            raise ValueError("betafactors='True' requires no_mapping='False'.")
+
         # Set the beta factors in the universe.atoms
-        self.set_betafactors()
+        if self._betafactors:
+            self.set_betafactors()
         
 
     def __str__(self):
