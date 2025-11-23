@@ -113,7 +113,6 @@ def _voxelate_atomgroup(atomgroup, resolution, max_offset=0.05):
     # The 10 is for going from nm to Angstrom
     nbox = (box / (10 * resolution)).round().astype(int) # boxels
     unit = np.linalg.inv(nbox) @ box                     # voxel shape
-    error = unit - 10 * resolution * np.eye(3)           # error: deviation from cubic
     deviation = (0.1 * (unit**2).sum(axis=1)**0.5 - resolution) / resolution
 
     # check for scaling artifacts
@@ -147,7 +146,7 @@ def create_voxels(atomgroup, resolution, max_offset=0.05, return_mapping=True):
     possible. If the offset of the actual resolution in at least one
     dimension is more than by default 5%, the function will stop and
     return an error specifying the actual offset in all dimensions
-    plus the frame in which the mapping error occured.
+    plus the frame in which the mapping error occurred.
 
     Parameters
     ----------
@@ -167,7 +166,6 @@ def create_voxels(atomgroup, resolution, max_offset=0.05, return_mapping=True):
     atom2voxel: tuple of (atom_voxels, atom_indices) if return_mapping is True, else None
         atom_voxels: (N, 3) array of voxel coordinates per atom
         atom_indices: (N,) array of atom indices corresponding to atom_voxels
-    nbox: the box dimensions in voxels
     """
     voxels, nbox = _voxelate_atomgroup(atomgroup, resolution, max_offset=max_offset)
     
@@ -179,23 +177,24 @@ def create_voxels(atomgroup, resolution, max_offset=0.05, return_mapping=True):
         # Store atom indices directly with voxels for faster lookup
         atom_voxels = voxels.copy()  # Keep the voxel coords per atom
         atom_indices = atomgroup.ix
-        return explicit, (atom_voxels, atom_indices), nbox
+        return explicit, (atom_voxels, atom_indices)
     else:
-        return explicit, None, nbox
+        return explicit, None
 
-def close_voxels(voxels, nbox):
+def close_voxels(voxels):
     """
     Dilates and erodes once in place (closing).
 
     Parameters
     ----------
     voxels: boolean 3D array of voxel occupancy
-    nbox: the box dimensions in voxels 
 
     Returns
     -------
     voxels: boolean 3D array of voxel occupancy after closure
     """
+    print(voxels.shape)
+    nbox = np.diag(voxels.shape)
     # Possible dilation and erosion to remove small holes for CG data.
     voxels = linear_blur(voxels, nbox, 1)
     voxels = linear_blur(~voxels, nbox, 1)

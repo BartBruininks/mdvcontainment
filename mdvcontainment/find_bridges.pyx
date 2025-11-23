@@ -3,7 +3,7 @@ cimport numpy as cnp
 
 def find_bridges(cnp.ndarray[cnp.int32_t, ndim=3] labeled_grid):
     """
-    Version using Python set for duplicate removal - often fastest for moderate sized data.
+    Returns the bridges between the segments over the boundaries.
     """
     cdef int x_max = labeled_grid.shape[0]
     cdef int y_max = labeled_grid.shape[1]
