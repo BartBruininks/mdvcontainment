@@ -51,7 +51,7 @@ Please cite this work if you use it for scientific publications. It helps me to 
 MDVContainment is available under the Apache-2.0 license.
 
 # Requirements
-MDVContainment has been tested to work with python >= 3.8 and Ubuntu 20.04.6 LTS. 
+MDVContainment has been tested to work with python >= 3.12. 
 
 # Installation
 ## Using git
