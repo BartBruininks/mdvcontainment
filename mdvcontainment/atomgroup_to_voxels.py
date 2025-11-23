@@ -193,7 +193,6 @@ def close_voxels(voxels):
     -------
     voxels: boolean 3D array of voxel occupancy after closure
     """
-    print(voxels.shape)
     nbox = np.diag(voxels.shape)
     # Possible dilation and erosion to remove small holes for CG data.
     voxels = linear_blur(voxels, nbox, 1)
