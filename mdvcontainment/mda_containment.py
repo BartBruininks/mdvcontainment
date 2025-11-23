@@ -90,7 +90,7 @@ class Containment():
                 self.atomgroup, self.resolution, max_offset= self._max_offset, return_mapping=False)    
         else:
             # No mapping needed, just voxelize the atomgroup
-            grid, _  = create_voxels(
+            grid, voxel2atom  = create_voxels(
                 self.atomgroup, self.resolution, max_offset= self._max_offset, return_mapping=False)
         
         if self.closing:
