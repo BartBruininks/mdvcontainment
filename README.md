@@ -90,7 +90,7 @@ selection_string = 'not resname W WF ION' # Useful for CG Martini
 selection = universe.select_atoms(selection_string)
 
 # Run the containment analysis
-containment = Containment(selection, resolution=0.5, closure=True)
+containment = Containment(selection, resolution=0.5, closing=True)
 
 # Show the containment graph with voxel counts
 print(containment)
@@ -98,7 +98,7 @@ print(containment)
 </details>
 
 > [!NOTE]
-> For atomistic structures use `closure=False`. Take a look at
+> For atomistic structures use `closing=False`. Take a look at
 > [closing](https://en.wikipedia.org/wiki/Closing_(morphology)) (link to wikipedia) to learn more about what it does.
 
 <details open>
