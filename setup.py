@@ -15,10 +15,10 @@ setup(
     ext_modules=cythonize(["mdvcontainment/find_label_contacts.pyx", 'mdvcontainment/find_bridges.pyx']),
     include_dirs=[numpy.get_include()],
     install_requires=[
-        "numpy",
-        "networkx",
-        "scipy",
-        "MDAnalysis",
-        "matplotlib",
+        "numpy>=2.2",
+        "networkx>=3.4",
+        "scipy>=1.15",
+        "MDAnalysis>=2.8",
+        "matplotlib>=3.10",
     ],
 )
