@@ -418,34 +418,6 @@ class VoxelContainment():
         else:
             nx.draw_networkx(self.containment_graph.subgraph(nodes))
         plt.show()
-
-if __name__ == '__main__':
-    from gen_data import create_3d_boolean_grid
-
-    def test_1():
-        """Simple periodic test case."""
-        print('PERIODIC TEST CASE')
-        shape = [160, 160, 40]
-        freqs = [8,8,8]
-        boolean_grid = create_3d_boolean_grid(shape, res=freqs)
-        slab = False
-        containment = VoxelContainment(boolean_grid, slab=slab, counts=True, verbose=False, draw_graphs=False, write_structures=False)
-        return containment
-    
-    def test_2():
-        """Simple non periodic test case."""
-        print('NON PERIODIC TEST CASE')
-        shape = [320, 320, 80]
-        freqs = [8,8,8]
-        boolean_grid = create_3d_boolean_grid(shape, res=freqs)
-        slab = True
-        containment = VoxelContainment(boolean_grid, slab=slab, write_structures=False)
-        return containment
-        
-    containment_1 = test_1()
-    print(containment_1)
-    containment_2 = test_2()
-    print(containment_2)
     
     
     
