@@ -48,7 +48,7 @@ def linear_blur(array, box, span, inplace=True):
     Returns
     -------
     blurred: 3D numpy array
-        The blurred array. 
+        The blurred array.
     """
 
     blurred = np.copy(array)
