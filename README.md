@@ -12,11 +12,7 @@ Using an MDAnalysis atomgroup, bead selection and resolution, a density grid is 
  *Any complex configuration of (non)periodic segments is supported by this algorithm in a fast, robust, unambiguous, deterministic and rot+trans invarient (up to voxel discretization) manner.*
 
 > [!NOTE]
-> MDVContainment has had a rework offering much improved performance and quality. However,
-> here is the [legacy](https://github.com/BartBruininks/mdvcontainment/tree/legacy) version if you insist on using it.
-
-> [!NOTE]
-> MDVContainment is undergoing a second major overhaul boosting performance by about 10x and supporting integer labeling to handle e.g. MDVLeafletSegmentation labeling!
+> MDVContainment is undergoing a functional overhaul, supporting integer labeling (e.g. MDVLeafletSegmentation labeling)!
 > When the code is ready to be tested a branch will be created called `integer_containment` which will probably become the new main branch over time.
 
 <p align="center">
@@ -58,14 +54,20 @@ MDVContainment is available under the Apache-2.0 license.
 MDVContainment has been tested to work with python >= 3.12. 
 
 # Installation
+## Using pip
+Install v1.0.0 in the current python environment:
+```console
+pip install mdvcontainment==v1.0.0
+```
+
 ## Using git
-Direct install into the current python environment libraries:
+Direct install from the github main branch into the current python environment:
 
 ```console
 pip install git+https://github.com/BartBruininks/mdvcontainment
 ```
 
-Create a folder in a custom location to have access to the examples folder:
+Create a folder in a custom location using git clone:
 
 ```console
 git clone git@github.com:BartBruininks/mdvcontainment.git
