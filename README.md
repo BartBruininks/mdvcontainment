@@ -54,7 +54,7 @@ MDVContainment is available under the Apache-2.0 license.
 MDVContainment has been tested to work with python >= 3.12. 
 
 # Installation
-## Using pip
+## Using pypi
 Install v1.0.0 in the current python environment:
 ```console
 pip install mdvcontainment==v1.0.0
