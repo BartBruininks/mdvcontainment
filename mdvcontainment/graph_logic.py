@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from .rank_logic import make_relabel_dicts
 
 def draw_graph(graph):
+    """Draws the provided graph using a Kamada-Kawai layout."""
     nx.draw(graph, pos=nx.kamada_kawai_layout(graph))
     nx.draw_networkx_labels(graph, nx.kamada_kawai_layout(graph))
     plt.show()
@@ -11,6 +12,20 @@ def draw_graph(graph):
 def create_contact_graph(contacts, nodes, bridges=False):
     """
     Returns the contact graph using the contacts and bridges.
+
+    Parameters
+    ----------
+    contacts: list of tuples
+        The contact edges between nodes.
+    nodes: list of int
+        The nodes in the graph.
+    bridges: list of tuples, optional
+        The bridge edges between nodes with their values.
+
+    Returns
+    -------
+    graph: networkx.MultiDiGraph
+        The created contact graph.
     """
     graph = nx.MultiDiGraph()
     for node in nodes:
@@ -38,13 +53,19 @@ def collapse_nodes(graph, query_node, target_nodes):
     """
     Collapse target nodes into the query node recursively.
 
-    Parameters:
-    graph (networkx.Graph): The graph containing the nodes.
-    query_node (any hashable type): The node into which target nodes should be collapsed.
-    target_nodes (list of any hashable type): The nodes to be collapsed into the query node.
+    Parameters
+    ----------
+    graph: networkx.MultiDiGraph
+        The graph containing the nodes to be collapsed.
+    query_node: int
+        The node into which the target nodes will be collapsed.
+    target_nodes: list of int
+        The nodes to be collapsed into the query node.
 
-    Returns:
-    networkx.Graph: The graph after collapsing the nodes.
+    Returns
+    -------
+    graph: networkx.MultiDiGraph
+        The modified graph with the target nodes collapsed into the query node.
     """
 
     # Initialize the set of nodes to be collapsed
@@ -75,12 +96,25 @@ def collapse_nodes(graph, query_node, target_nodes):
                 graph.remove_edge(node, neighbor)
             # Remove the node from the graph
             graph.remove_node(node)
-
     return graph
 
 def get_subgraphs(nonp_unique_labels, contact_graph):
     """
-    Returns to lists for the positive and negrative subgraphs in the contact graph.
+    Returns to lists for the positive and negative subgraphs in the contact graph.
+
+    Parameters
+    ----------
+    nonp_unique_labels: array-like
+        The unique non-periodic labels in the contact graph.
+    contact_graph: networkx.MultiDiGraph
+        The contact graph containing the labels.
+    
+    Returns
+    -------
+    positive_subgraphs: list of networkx.MultiDiGraph
+        The list of positive contact subgraphs.
+    negative_subgraphs: list of networkx.MultiDiGraph
+        The list of negative contact subgraphs.
     """
     # Obtain the positive and negative label ids.
     positive_labels = nonp_unique_labels[nonp_unique_labels > 0]
@@ -95,13 +129,27 @@ def get_subgraphs(nonp_unique_labels, contact_graph):
 
 def get_mapping_dicts(positive_subgraphs, negative_subgraphs):
     """
-    Returns the component - label maps.
+    Returns the component -> label maps.
 
-    A label is a non periodic connected compoponent.
+    A label is a non periodic connected component.
     A component is a (potentially) periodic connected component. Therefore 
-        a component can exist out of multiple labels.
+    a component can exist out of multiple labels.
 
-    components2labels, labels2components, label2component
+    Parameters
+    ----------
+    positive_subgraphs: list of networkx.MultiDiGraph
+        The list of positive contact subgraphs.
+    negative_subgraphs: list of networkx.MultiDiGraph
+        The list of negative contact subgraphs.
+
+    Returns
+    -------
+    component2labels: dict
+        The mapping from component id to list of labels.
+    labels2component: dict
+        The mapping from sorted labels tuple to component id.
+    label2component: dict
+        The mapping from single label to component id.
     """
     # Create the mapping from labels to connected components (a cc can consist of multiple labels)
     component2labels, labels2component  = make_relabel_dicts(positive_subgraphs, negative_subgraphs)
@@ -116,13 +164,27 @@ def get_mapping_dicts(positive_subgraphs, negative_subgraphs):
 def create_component_contact_graph(component2labels, label2component, contact_graph):
     """
     Returns the undirected component level contact graph.
+
+    Parameters
+    ----------
+    component2labels: dict
+        The mapping from component id to list of labels.
+    label2component: dict
+        The mapping from single label to component id.
+    contact_graph: networkx.MultiDiGraph
+        The contact graph containing the labels.
+
+    Returns
+    -------
+    component_contact_graph: networkx.Graph
+        The created component level contact graph.
     """
     # Creating a component level contact graph.
     component_contact_graph = nx.Graph()
     for component, labels in component2labels.items():
         # Add the component node
         component_contact_graph.add_node(component)
-        # Find all the component neighbours
+        # Find all the component neighbors
         contacts = set()
         for label in labels:
             neighbor_list = list(contact_graph.neighbors(label))
@@ -135,10 +197,23 @@ def create_component_contact_graph(component2labels, label2component, contact_gr
             component_contact_graph.add_edge(component, contact)
     return component_contact_graph
 
-
 def create_containment_graph(is_contained_dict, unique_components, component_contact_graph):
     """
     Returns the directed containment graph. A parent points to its children.
+
+    Parameters
+    ----------
+    is_contained_dict: dict
+        The mapping from component id to its is_contained status (True/False).
+    unique_components: list of int
+        The list of unique component ids.
+    component_contact_graph: networkx.Graph
+        The undirected component level contact graph.
+
+    Returns
+    -------
+    containment_graph: networkx.MultiDiGraph
+        The created directed containment graph.
     """
     # Use the is_contained status to propagate containment. Start with finding all
     #  is_not_contained nodes.
@@ -150,7 +225,7 @@ def create_containment_graph(is_contained_dict, unique_components, component_con
     for node in unique_components:
         containment_graph.add_node(node)
 
-    counter = 0 # for checing if recursion is not getting out of hand.
+    counter = 0 # for checking if recursion is not getting out of hand.
     stack = is_not_contained.copy() # Start with non-contained nodes.
     while len(stack):
         assert counter < 100000, 'During orientation of the containment graph we got in an iterative death (max iterations 100,000).'

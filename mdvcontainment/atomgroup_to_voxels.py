@@ -1,17 +1,20 @@
 import numpy as np
-import networkx as nx
 
-import MDAnalysis as mda
-import collections
-
-from .containment_main import VoxelContainment
-from .voxels_to_gro import voxels_to_gro
-
-# Adding the MDA wrapper functionalities
-
-# Generating the PBC in the right format MDA->Matrix
 def dim2lattice(x, y, z, alpha=90, beta=90, gamma=90):
-    """Convert dimensions (lengths/angles) to lattice matrix"""
+    """Convert dimensions (lengths/angles) to lattice matrix.
+
+    Parameters
+    ----------
+    x, y, z : float
+        Lengths of the unit cell edges.
+    alpha, beta, gamma : float, optional
+        Angles between the edges in degrees. Default is 90 degrees.
+    
+    Returns
+    -------
+    box : 3x3 numpy array
+        The box matrix representing the unit cell.
+    """
     cosa = np.cos( np.pi * alpha / 180 )
     cosb = np.cos( np.pi * beta / 180 )
     cosg = np.cos( np.pi * gamma / 180 )
@@ -30,6 +33,22 @@ def linear_blur(array, box, span, inplace=True):
     up to span. If inplace is True, the rolled 
     array is always the target array, causing
     a full blur.
+    
+    Parameters
+    ----------
+    array: 3D numpy array
+        The array to be blurred.
+    box: 3x3 numpy array
+        The box matrix for PBC handling.
+    span: int
+        The number of voxels to blur over in each direction.
+    inplace: bool, optional
+        Whether to perform the blurring in place. Default is True.
+
+    Returns
+    -------
+    blurred: 3D numpy array
+        The blurred array.
     """
 
     blurred = np.copy(array)
@@ -69,7 +88,24 @@ def linear_blur(array, box, span, inplace=True):
         blurred += rolled
     return blurred
 
-def voxelate_atomgroup(atomgroup, resolution, hyperres=False, max_offset=0.05):
+def _voxelate_atomgroup(atomgroup, resolution, max_offset=0.05):
+    """
+    Takes an atomgroup and bins it as close to the resolution as
+    possible. If the offset of the actual resolution in at least one
+    dimension is more than by default 5%, the function will stop and
+    return an error specifying the actual offset in all dimensions
+    plus the frame in which the mapping error occurred.
+
+    Parameters
+    ----------
+    atomgroup: MDAnalysis AtomGroup
+        The atomgroup to voxelate.
+    resolution: float
+        The target resolution in nm.
+    max_offset: float, optional
+        The maximum allowed offset from the target resolution in any dimension
+        as a fraction of the target resolution. Default is 0.05 (5%). 
+    """
     check = max_offset == True
     resolution = abs(resolution)
 
@@ -77,13 +113,12 @@ def voxelate_atomgroup(atomgroup, resolution, hyperres=False, max_offset=0.05):
     # The 10 is for going from nm to Angstrom
     nbox = (box / (10 * resolution)).round().astype(int) # boxels
     unit = np.linalg.inv(nbox) @ box                     # voxel shape
-    error = unit - 10 * resolution * np.eye(3)           # error: deviation from cubic
     deviation = (0.1 * (unit**2).sum(axis=1)**0.5 - resolution) / resolution
 
-    # don't check if told so through a negative resolution 
+    # check for scaling artifacts
     if check and (np.abs(deviation) > max_offset).any():
         raise ValueError(
-            'A scaling artifact has occured of more than {}% '
+            'A scaling artifact has occurred of more than {}% '
             'deviation from the target resolution in frame {} was '
             'detected. You could consider increasing the '
             'resolution.'.format(max_offset,
@@ -92,10 +127,6 @@ def voxelate_atomgroup(atomgroup, resolution, hyperres=False, max_offset=0.05):
 
     transform = np.linalg.inv(box) @ nbox                 # transformation to voxel indices
     fraxels = atomgroup.positions @ transform         
-    #if hyperres:
-        # Blur coordinates 
-        #neighbors = hyperres * (np.mgrid[-1:2, -1:2, -1:2]).T.reshape((1, -1, 3))
-        #voxels = (voxels[:, None, :] + neighbors).reshape((-1, 3))
     voxels = np.floor(fraxels).astype(int)
     fraxels -= voxels
     
@@ -109,81 +140,94 @@ def voxelate_atomgroup(atomgroup, resolution, hyperres=False, max_offset=0.05):
         
     return voxels, nbox
 
-
-def gen_explicit_matrix(atomgroup, resolution=1, hyperres=False, max_offset=0.05, return_mapping=True):
+def create_voxels(atomgroup, resolution, max_offset=0.05, return_mapping=True):
     """
     Takes an atomgroup and bins it as close to the resolution as
     possible. If the offset of the actual resolution in at least one
     dimension is more than by default 5%, the function will stop and
     return an error specifying the actual offset in all dimensions
-    plus the frame in which the mapping error occured.
+    plus the frame in which the mapping error occurred.
+
+    Parameters
+    ----------
+    atomgroup: MDAnalysis AtomGroup
+        The atomgroup to voxelate.
+    resolution: float
+        The target resolution in nm.
+    max_offset: float, optional
+        The maximum allowed offset from the target resolution in any dimension
+        as a fraction of the target resolution. Default is 0.05 (5%).
+    return_mapping: bool, optional
+        Whether to return the mapping from voxels to atoms. Default is True.
     
     Returns
-    (array) 3d boolean with True for occupied bins
-    (dictionary) atom2voxel mapping
-
+    -------
+    voxels: boolean 3D array of voxel occupancy
+    atom2voxel: tuple of (atom_voxels, atom_indices) if return_mapping is True, else None
+        atom_voxels: (N, 3) array of voxel coordinates per atom
+        atom_indices: (N,) array of atom indices corresponding to atom_voxels
     """
-    voxels, nbox = voxelate_atomgroup(atomgroup, resolution, hyperres, max_offset=max_offset)
-    # Using np.unique gives a small performance hit.
-    # Might still be necessary with large coordinate sets?
-    # unique = np.unique(voxels, axis=0)
+    voxels, nbox = _voxelate_atomgroup(atomgroup, resolution, max_offset=max_offset)
+    
     x, y, z = voxels.T
     explicit = np.zeros(np.diagonal(nbox), dtype=bool)
     explicit[x, y, z] = True
-
-    # generating the mapping dictionary
-    voxel2atom = collections.defaultdict(list)
-    # atom index starts from 0 here and is the index in the array, not the
-    #  selection atom index in atom_select (these start from 1)
-    if hyperres:
-        linear_blur(explicit, nbox, 1, inplace=True)
-        indices = atomgroup.ix
-        #indices = np.repeat(atomgroup.ix, 27)
-    else:
-        indices = atomgroup.ix
     
     if return_mapping:
-        for idx, voxel in zip(indices, voxels):
-            voxel2atom[tuple(voxel)].append(idx)
-        return explicit, voxel2atom, nbox
+        # Store atom indices directly with voxels for faster lookup
+        atom_voxels = voxels.copy()  # Keep the voxel coords per atom
+        atom_indices = atomgroup.ix
+        return explicit, (atom_voxels, atom_indices)
     else:
-        return explicit, None, nbox
+        return explicit, None
 
-def create_voxels(atomgroup, resolution, hyperres=False, max_offset=0.05, return_mapping=True):
+def close_voxels(voxels):
     """
-    Returns 3 voxel objects:
-    
-    all_voxels, voxels, inv_voxels. Where voxels containt alls the atoms in the atomgroup, all_voxels
-    contains all atoms in the universe belonging to the atomgroup. Inv_voxels contains all atoms which 
-    are in the universe of the atomgroup, but not in the atomgroup.
-    """
-    # Getting the all voxel mask for later indexin when we want to get void particles.
-    grid, voxel2atom, nbox = gen_explicit_matrix(
-            atomgroup, resolution, hyperres, max_offset, return_mapping)
+    Dilates and erodes once in place (closing).
 
-    return grid, voxel2atom, nbox
+    Parameters
+    ----------
+    voxels: boolean 3D array of voxel occupancy
 
-def close_voxels(voxels, nbox):
+    Returns
+    -------
+    voxels: boolean 3D array of voxel occupancy after closure
     """
-    Dilates and erodes once in place (closure).
-    """
+    nbox = np.diag(voxels.shape)
     # Possible dilation and erosion to remove small holes for CG data.
     voxels = linear_blur(voxels, nbox, 1)
     voxels = linear_blur(~voxels, nbox, 1)
     voxels = ~voxels
     return voxels
 
-def voxels2atomgroup(voxels, voxel2atom, atomgroup):
+def voxels2atomgroup(voxels, mapping, atomgroup):
     """
-    Converts the voxels in a voxel list back to an atomgroup.
-    
-    Takes a voxel list and uses the voxel2atom mapping with respect to the
-    atomgroup.universe to generate a corresponding atomgroup with the voxel 
-    list. This is the inverse of gen_explicit_matrix.
-    
     Returns an atomgroup.
+
+    Fast vectorized version using boolean masking.
+    mapping is now (atom_voxels, atom_indices) from create_voxels.
+
+    Parameters
+    ----------
+    voxels: array-like of shape (M, 3)
+        Voxel positions to convert back to atoms.
+    mapping: tuple of (atom_voxels, atom_indices)
+        atom_voxels: (N, 3) array of voxel coordinates per atom
+        atom_indices: (N,) array of atom indices corresponding to atom_voxels
+    atomgroup: MDAnalysis AtomGroup
+        The original atomgroup from which the mapping was created.
+
+    Returns
+    -------
+    atomgroup: MDAnalysis AtomGroup
+        The atomgroup corresponding to the provided voxel positions.
     """
-    # It is not important that every index only occurs onec,
-    # as long as each atom is only selected once.
-    indices = { idx for v in voxels for idx in voxel2atom[tuple(v)] }
-    return atomgroup.universe.atoms[list(indices)]
+    atom_voxels, atom_indices = mapping
+    voxels_array = np.array(voxels)
+    
+    # Create boolean mask: which atoms are in any of the target voxels?
+    # This uses broadcasting to compare all atoms against all target voxels
+    mask = (atom_voxels[:, None] == voxels_array[None, :]).all(axis=2).any(axis=1)
+    
+    selected_indices = atom_indices[mask]
+    return atomgroup.universe.atoms[selected_indices]

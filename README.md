@@ -1,4 +1,8 @@
-# MDVContainment—OPEN BETA
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/354b70dc-9069-493f-8c5b-fc756b7d14d0" width="60%">
+</p>
+
+# MDVContainment v1.0.0
 Robust and fast containment charaterization for (periodic) point clouds and voxel masks for binary density labeling.
 
 **M**olecular **D**ynamics **V**oxel **Containment** yields a robust characterization of the inside and outside hierarchy for point clouds in periodic spaces of dimensionality three or lower (e.g. R^3/Z^3).
@@ -51,7 +55,7 @@ Please cite this work if you use it for scientific publications. It helps me to 
 MDVContainment is available under the Apache-2.0 license.
 
 # Requirements
-MDVContainment has been tested to work with python >= 3.8 and Ubuntu 20.04.6 LTS. 
+MDVContainment has been tested to work with python >= 3.12. 
 
 # Installation
 ## Using git
@@ -90,7 +94,7 @@ selection_string = 'not resname W WF ION' # Useful for CG Martini
 selection = universe.select_atoms(selection_string)
 
 # Run the containment analysis
-containment = Containment(selection, resolution=0.5, closure=True)
+containment = Containment(selection, resolution=0.5, closing=True)
 
 # Show the containment graph with voxel counts
 print(containment)
@@ -98,7 +102,7 @@ print(containment)
 </details>
 
 > [!NOTE]
-> For atomistic structures use `closure=False`. Take a look at
+> For atomistic structures use `closing=False`. Take a look at
 > [closing](https://en.wikipedia.org/wiki/Closing_(morphology)) (link to wikipedia) to learn more about what it does.
 
 <details open>

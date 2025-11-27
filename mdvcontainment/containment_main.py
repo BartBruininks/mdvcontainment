@@ -13,20 +13,35 @@ from .label import label_3d_grid, create_components_grid
 from .find_label_contacts import find_label_contacts
 from .find_bridges import find_bridges 
 
-#@profile
 def nonp_is_contained(labeled_grid, nonp_unique_labels, write_structures=False):
     """
     Returns containment status for the slab case and the component ranks.
     
     Each label is set to be either contained or not, based on the following
-    critera:
-        1) The relevent dimensions for the outside are picked dynamically
-            based on is set to the two largest axis in the shape of the
+    criteria:
+        1) The relevant dimensions for the outside are picked dynamically
+            based on the two largest axis in the shape of the
             input array. The thinnest dimension is assumed to be the slice
             thickness.
-        2) Any label which has a voxel in the relevent hollow cylinder
+        2) Any label which has a voxel in the relevant hollow cylinder
             formed by the minimal and maximal positions of the two picked
             dimensions is regarded an absolute outside.    
+
+    Parameters
+    ----------
+    labeled_grid: int32 3D array
+        The labeled grid where each voxel has a label integer.
+    nonp_unique_labels: array-like
+        The unique labels in the labeled grid.
+    write_structures: bool
+        Whether to write a gro file of the mask.
+
+    Returns
+    -------
+    is_contained_dict: dict
+        Dict of label:int -> is_contained:bool
+    component_ranks: dict
+        Dict of label:int -> rank:int
     """
     # Find the relevant dimensions which define the bounding cylinder.
     shape = labeled_grid.shape
@@ -58,25 +73,45 @@ def nonp_is_contained(labeled_grid, nonp_unique_labels, write_structures=False):
             is_contained_dict[label] = False
         else:
             component_ranks[label] = 0
-            is_contained_dict[label] = True
-            
+            is_contained_dict[label] = True      
     return is_contained_dict, component_ranks
 
-#@profile
-def calc_containment_graph(boolean_grid, nbox, verbose=False, write_structures=False, draw_graphs=False, slab=False):
+def calc_containment_graph(boolean_grid, verbose=False, write_structures=False, draw_graphs=False, slab=False):
     """
-    Returns the containment graph nx.MultiDiGraph(), 
-    taking right angled PBC into account.
+    Creates the containment graph nx.MultiDiGraph(), taking right angled PBC into account.
     
-    It also returns the component contact graph nx.Graph(), the component grid np.array(int32),
-    the ranks of the components dict(component:rank) and the labels contact graph.
+    Parameters
+    ----------
+    boolean_grid: bool 3D array
+        Boolean 3D array of voxel occupancy.
+    verbose: bool
+        Whether to print developer information.
+    write_structures: bool
+        Whether to write gro files of the input, labeled and components grids.
+    draw_graphs: bool
+        Whether to draw the contact graphs.
+    slab: bool
+        Whether to treat the data as a slab (non periodic in one dimension).
+
+    Returns
+    -------
+    containment_graph: nx.DiGraph
+        The containment graph with directed edges from parent to child.
+    component_contact_graph: nx.Graph
+        The undirected component contact graph.
+    components_grid: int32 3D array
+        The components grid where each voxel has a component integer.
+    component_ranks: dict
+        Dict of component:int -> rank:int
+    contact_graph: nx.Graph
+        The undirected label contact graph. 
     """
     # Return the basic counts of Trues and Falses in the input grid if verbose.
     if verbose:
         counts_boolean_grid = dict(zip(*np.unique(boolean_grid, return_counts=True)))
-        print(f'Value prevalence in booelan_grid: {counts_boolean_grid}')\
+        print(f'Value prevalence in boolean_grid: {counts_boolean_grid}')\
 
-    # Finding all unique label ids in the labaled grid.
+    # Finding all unique label ids in the labeled grid.
     nonp_labeled_grid = label_3d_grid(boolean_grid)
     nonp_unique_labels = np.unique(nonp_labeled_grid)
     if verbose:
@@ -92,7 +127,7 @@ def calc_containment_graph(boolean_grid, nbox, verbose=False, write_structures=F
 
     if not slab:
         # Find all bridges (contacts between labels over PBC).
-        bridges = find_bridges(nonp_labeled_grid, nbox)
+        bridges = find_bridges(nonp_labeled_grid)
 
     # Generate the label contact graph with bridge annotation.
     if not slab:
@@ -121,7 +156,6 @@ def calc_containment_graph(boolean_grid, nbox, verbose=False, write_structures=F
     if write_structures:
         voxels_to_gro('components.gro', components_grid)
     
-    
     # Calculate the ranks for the components and complements.
     if not slab:
         component_ranks, complement_ranks = get_ranks(positive_subgraphs, negative_subgraphs, nonp_unique_labels, component2labels, labels2component, contact_graph)
@@ -137,11 +171,10 @@ def calc_containment_graph(boolean_grid, nbox, verbose=False, write_structures=F
     else:
         is_contained_dict, component_ranks = nonp_is_contained(nonp_labeled_grid, nonp_unique_labels, write_structures)
         
-    
     if not slab:
-        # Create the component level contact graph. Using an iterative aproach we 
+        # Create the component level contact graph. Using an iterative approach we 
         #  trickly down the containment arrow started by a non-contained component
-        #  being incontact with a contained component, therefore containing it. 
+        #  being in contact with a contained component, therefore containing it. 
         #  Since every contained component can only have on parent, this means it
         #  must be the parent of all its other contacts in the component contact
         #  graph. This iterates until all nodes have been processed.
@@ -155,59 +188,75 @@ def calc_containment_graph(boolean_grid, nbox, verbose=False, write_structures=F
         component_contact_graph = nx.Graph(contact_graph)
     
     # Finally create the containment graph by directing the edges in the 
-    #  componnet contact graph (also breaking edges if they do not represent,
+    #  component contact graph (also breaking edges if they do not represent,
     #  a containment hierarchy).
     unique_components = np.unique(components_grid)
     containment_graph = create_containment_graph(is_contained_dict, unique_components, component_contact_graph)
-    
     return containment_graph, component_contact_graph, components_grid, component_ranks, contact_graph
 
-
-
-def print_dag(G, node, counts, prefix='', is_last=True):
+def format_dag(G, node, counts, prefix='', is_last=True):
+    """
+    Recursively format a DAG node and its children as a string.
+    
+    Args:
+        G: NetworkX DAG
+        node: Current node to format
+        counts: Dictionary of counts per node, or False to omit counts
+        prefix: String prefix for current line (for tree structure)
+        is_last: Whether this node is the last child of its parent
+    
+    Returns:
+        String representation of the node and its subtree
+    """
     connector = '└── ' if is_last else '├── '
+    
     if counts is not False:
-        print(f"{prefix}{connector}[{node}: {counts[node]}]")
+        result = f"{prefix}{connector}[{node}: {counts[node]}]\n"
     else:
-        print(f"{prefix}{connector}[{node}]")
+        result = f"{prefix}{connector}[{node}]\n"
+    
     children = list(G.successors(node))
     for i, child in enumerate(children):
         new_prefix = prefix + ('    ' if is_last else '│   ')
-        print_dag(G, child, counts, new_prefix, i == len(children) - 1)
+        result += format_dag(G, child, counts, new_prefix, i == len(children) - 1)
+    return result
 
-def print_dag_structure(G, counts=False):
+
+def format_dag_structure(G, counts=False):
+    """
+    Format the entire DAG structure as a string.
+    
+    Args:
+        G: NetworkX graph
+        counts: Dictionary of counts per node, or False to omit counts
+    
+    Returns:
+        String representation of the entire DAG
+    """
     if counts is not False:
-        print(f'Containment Graph with {len(G.nodes())} components (component: nvoxels):')
+        result = f'Containment Graph with {len(G.nodes())} components (component: nvoxels):\n'
     else:
-        print(f'Containment Graph with {len(G.nodes())} components:')
+        result = f'Containment Graph with {len(G.nodes())} components:\n'
+    
     roots = [node for node, in_degree in G.in_degree() if in_degree == 0]
+    
     for i, root in enumerate(roots):
-        print_dag(G, root, counts, '', i == len(roots) - 1)
-
+        result += format_dag(G, root, counts, '', i == len(roots) - 1)
+    return result
 
 class VoxelContainment():
-    def __init__(self, grid, nbox=False, verbose=False, write_structures=False, draw_graphs=False, counts=True, slab=False):
+    def __init__(self, grid, verbose=False, write_structures=False, draw_graphs=False, counts=True, slab=False):
         """
         A Containment graph is a DAG which has a parent pointing to its children with an edge.
         """
         # Read input
         self.grid = grid
-        self.nbox = nbox
         self._verbose = verbose
         self._write_structures = write_structures
         self._draw_graphs = draw_graphs
         self.slab = slab
 
-        # Automatic nbox for rectangular PBC
-        if self.nbox is False:
-            if self._verbose:
-                print('Setting nbox to rectangular PBC (wrap).')
-            self.nbox = np.zeros((3,3))
-            self.nbox[0,0] = self.grid.shape[0]
-            self.nbox[1,1] = self.grid.shape[1]
-            self.nbox[2,2] = self.grid.shape[2]
-
-        # Set all containment ouput
+        # Set all containment output
         self.containment_graph, self.component_contact_graph, self.components_grid, self.component_ranks, self.nonp_label_contact_graph = self._calc_containment()
         # Instantiate the inverted graph to False, if it is needed
         #  it is generated only once.
@@ -217,46 +266,54 @@ class VoxelContainment():
         self.voxel_counts = counts
         if self.voxel_counts:
             self.voxel_counts = self.get_counts(self.components_grid)
-
-        self.nodes = self._set_nodes()
-
+        # Sets all nodes
+        self.nodes = self._get_nodes()
         # Sets the root nodes
-        self.root_nodes = self._set_roots()
-
-        # Set leave nodes
-        self.leaf_nodes = self._set_leaves()
+        self.root_nodes = self._get_roots()
+        # Set leaf nodes
+        self.leaf_nodes = self._get_leaves()
 
     def _calc_containment(self):
         return calc_containment_graph(
-            self.grid, self.nbox, verbose=self._verbose, write_structures=self._write_structures, draw_graphs=self._draw_graphs, slab=self.slab)
+            self.grid, verbose=self._verbose, write_structures=self._write_structures, draw_graphs=self._draw_graphs, slab=self.slab)
 
     def __str__(self):
-        print_dag_structure(self.containment_graph, self.voxel_counts)
-        return ''
+        return format_dag_structure(self.containment_graph, self.voxel_counts)
 
-    def _set_nodes(self):
+    def _get_nodes(self):
         """
-        Returns all nodes (components) in the contaiment graph.
+        Returns all nodes (components) in the containment graph.
         """
         return list(self.containment_graph.nodes)
 
     def get_counts(self, grid=None):
         """
         Returns the number of elements in each component as a dict.
+
+        Parameters
+        ----------
+        grid: int32 3D array, optional
+            The components grid to calculate counts for. If None, uses
+            self.components_grid. 
+        
+        Returns
+        -------
+        counts_dict: dict
+            Dict of component:int -> voxel_count:int 
         """
         if grid is None:
             grid = self.components_grid
         return dict(zip(*np.unique(grid, return_counts=True)))
 
-    def _set_roots(self):
+    def _get_roots(self):
         """
         Returns a list of root nodes (absolute outsides).
         """
         return list((node for node, in_degree in self.containment_graph.in_degree() if in_degree == 0))
 
-    def _set_leaves(self):
+    def _get_leaves(self):
         """
-        Returns a list of leave nodes (deepest level of containment).
+        Returns a list of leaf nodes (deepest level of containment).
         """
         return list((node for node, out_degree in self.containment_graph.out_degree() if out_degree == 0))
 
@@ -343,17 +400,17 @@ class VoxelContainment():
         indices = np.where(mask)
         return np.array(indices).T
 
-    def print_containment(self, nodes=False):
+    def format_containment(self, nodes=False):
         """
-        Prints the selected nodes as a containment graph.
+        Returns the selected nodes as a containment graph.
 
         By default prints the complete graph.
         """
         if nodes is not False:
-            print_dag_structure(self.containment_graph.subgraph(nodes), self.voxel_counts)
+            string = format_dag_structure(self.containment_graph.subgraph(nodes), self.voxel_counts)
         else:
-            print_dag_structure(self.containment_graph, self.voxel_counts)
-        return ''
+            string = format_dag_structure(self.containment_graph, self.voxel_counts)
+        return string
 
     def draw(self, nodes=False):
         if nodes is False:
@@ -361,36 +418,6 @@ class VoxelContainment():
         else:
             nx.draw_networkx(self.containment_graph.subgraph(nodes))
         plt.show()
-
-
-if __name__ == '__main__':
-    from gen_data import create_3d_boolean_grid
-    #@profile
-    def test_1():
-        print()
-        print('PERIODIC TEST CASE')
-        shape = [160, 160, 40]
-        freqs = [8,8,8]
-        boolean_grid = create_3d_boolean_grid(shape, res=freqs)
-        slab = False
-        containment = VoxelContainment(boolean_grid, slab=slab, nbox=False, counts=True, verbose=False, draw_graphs=False, write_structures=False)
-        print(containment)
-        print(containment.component_ranks)
-    
-    #@profile
-    def test_2():
-        print()
-        print('NON PERIODIC TEST CASE')
-        shape = [320, 320, 80]
-        freqs = [8,8,8]
-        boolean_grid = create_3d_boolean_grid(shape, res=freqs)
-        slab = True
-        containment = VoxelContainment(boolean_grid, slab=slab, write_structures=False)
-        print(containment)
-        print(containment.component_ranks)
-        
-    #test_1()
-    test_2()
     
     
     
