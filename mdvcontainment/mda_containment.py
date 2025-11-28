@@ -6,7 +6,7 @@ from .atomgroup_to_voxels import close_voxels, create_voxels, voxels2atomgroup
 from .containment_main import VoxelContainment
 
 class Containment():
-    def __init__(self, atomgroup, resolution, closing=False, slab=False, max_offset=0.05, 
+    def __init__(self, atomgroup, resolution, closing=False, slab=False, extrusion=False, max_offset=0.05, 
                  verbose=False, write_structures=False, no_mapping=False, return_counts=True, 
                  betafactors=True):
         """
@@ -23,6 +23,11 @@ class Containment():
         This is usually required for CG Martini simulations when,
         using a resolution of 0.5 nm. For a resolution of 1 nm it
         is not required and disadvised.
+
+        Extrusion smears the generated voxel mask after closing in all axes. 
+        This is useful for point clouds generated from meshes, since these 
+        point clouds are basically 2D which can cause unexpected behavior. 
+        Giving these point clouds some thickness remedies this.
 
         Slab can be set to 'True' to process slices of a larger whole,
         this will disable any treatment of PBC.
@@ -51,6 +56,7 @@ class Containment():
         self.atomgroup = atomgroup
         self.resolution = resolution
         self.closing = closing
+        self.extrusion = extrusion
         self._slab = slab
         self._max_offset = max_offset
         self._verbose = verbose
@@ -94,7 +100,24 @@ class Containment():
                 self.atomgroup, self.resolution, max_offset= self._max_offset, return_mapping=False)
         
         if self.closing:
-            grid = close_voxels(grid)       
+            grid = close_voxels(grid)
+
+        if self.extrusion:
+            # Extrude in all axes separately (is this actually guaranteed to be enough if you do not apply them serially?)
+            raw_grid = grid.copy()
+            grid = np.roll(raw_grid, shift=1, axis=0) | grid
+            grid = np.roll(raw_grid, shift=1, axis=1) | grid
+            grid = np.roll(raw_grid, shift=1, axis=2) | grid           
+            
+            # Full extrusion in XYZ
+            #grid = np.roll(grid, shift=1, axis=0) | grid
+            #grid = np.roll(grid, shift=1, axis=1) | grid
+            #grid = np.roll(grid, shift=1, axis=2) | grid
+
+            # Extrude only in XY (theoretically this enough and more conservative, but less symmetric?)
+            #raw_grid = grid.copy()
+            #grid = np.roll(raw_grid, shift=1, axis=0) | grid
+            #grid = np.roll(grid, shift=1, axis=1) | grid
         return grid, voxel2atom
 
     def get_atomgroup_from_voxel_positions(self, voxels):
