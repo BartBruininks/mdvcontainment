@@ -182,20 +182,19 @@ class Containment():
     def set_betafactors(self):
         """
         Sets the component id per atom in the beta factors column of the universe.
+        Uses voxels2atomgroup to avoid code duplication.
         """
         betafactors = np.zeros(len(self.universe.atoms))
         all_nodes = self.voxel_containment.nodes
-        atom_voxels, atom_indices = self.voxel2atom
         
         for node in all_nodes:
             voxels = self.voxel_containment.get_voxel_positions(node)
-            voxels_array = np.asarray(voxels)
             
-            # Vectorized comparison to find atoms in these voxels
-            mask = (atom_voxels[:, None] == voxels_array[None, :]).all(axis=2).any(axis=1)
-            selected_indices = atom_indices[mask]
+            # Reuse the existing voxels2atomgroup function!
+            selected_atoms = voxels2atomgroup(voxels, self.voxel2atom, self.universe.atoms)
             
-            betafactors[selected_indices] = node
+            if len(selected_atoms) > 0:
+                betafactors[selected_atoms.ix] = node
         
         try:
             self.universe.atoms.tempfactors = betafactors

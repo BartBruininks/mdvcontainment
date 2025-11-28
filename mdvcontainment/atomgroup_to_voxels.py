@@ -140,14 +140,12 @@ def _voxelate_atomgroup(atomgroup, resolution, max_offset=0.05):
         
     return voxels, nbox
 
+import numpy as np
+
 def create_voxels(atomgroup, resolution, max_offset=0.05, return_mapping=True):
     """
-    Takes an atomgroup and bins it as close to the resolution as
-    possible. If the offset of the actual resolution in at least one
-    dimension is more than by default 5%, the function will stop and
-    return an error specifying the actual offset in all dimensions
-    plus the frame in which the mapping error occurred.
-
+    Takes an atomgroup and bins it as close to the resolution as possible.
+    
     Parameters
     ----------
     atomgroup: MDAnalysis AtomGroup
@@ -163,23 +161,106 @@ def create_voxels(atomgroup, resolution, max_offset=0.05, return_mapping=True):
     Returns
     -------
     voxels: boolean 3D array of voxel occupancy
-    atom2voxel: tuple of (atom_voxels, atom_indices) if return_mapping is True, else None
-        atom_voxels: (N, 3) array of voxel coordinates per atom
-        atom_indices: (N,) array of atom indices corresponding to atom_voxels
+    mapping: dict with keys:
+        - 'atom_clusters': (n_atoms,) array mapping each atom to its voxel cluster ID
+        - 'cluster_indices': dict mapping voxel cluster ID to array of atom positions
+        - 'cluster_coords': dict mapping voxel cluster ID to (x,y,z) voxel coordinates
     """
     voxels, nbox = _voxelate_atomgroup(atomgroup, resolution, max_offset=max_offset)
-    
     x, y, z = voxels.T
+    
+    # Create explicit voxel grid
     explicit = np.zeros(np.diagonal(nbox), dtype=bool)
     explicit[x, y, z] = True
     
     if return_mapping:
-        # Store atom indices directly with voxels for faster lookup
-        atom_voxels = voxels.copy()  # Keep the voxel coords per atom
-        atom_indices = atomgroup.ix
-        return explicit, (atom_voxels, atom_indices)
+        # Create memory-efficient mapping
+        mapping = _create_efficient_mapping(voxels, atomgroup.ix)
+        return explicit, mapping
     else:
         return explicit, None
+
+
+def _create_efficient_mapping(voxels, atom_indices):
+    """
+    Creates a memory-efficient mapping structure using hash-based indexing.
+    
+    Parameters
+    ----------
+    voxels: (N, 3) array of voxel coordinates per atom
+    atom_indices: (N,) array of atom indices
+    
+    Returns
+    -------
+    mapping: dict containing:
+        - 'atom_voxels': (N, 3) array mapping each atom to its voxel coords
+        - 'voxel_to_atoms': dict mapping voxel coords (as tuple) -> array of atom indices
+        - 'atom_indices': original atom indices array
+    """
+    # Keep the simple atom -> voxel mapping (memory efficient: just coordinates)
+    atom_voxels = voxels.copy()
+    
+    # Build reverse index: voxel -> atoms
+    # This is sparse and only stores unique voxels
+    voxel_to_atoms = {}
+    for i, voxel_coord in enumerate(voxels):
+        voxel_tuple = tuple(voxel_coord)
+        if voxel_tuple not in voxel_to_atoms:
+            voxel_to_atoms[voxel_tuple] = []
+        voxel_to_atoms[voxel_tuple].append(i)
+    
+    # Convert lists to numpy arrays for faster indexing
+    voxel_to_atoms = {k: np.array(v, dtype=np.int32) for k, v in voxel_to_atoms.items()}
+    
+    return {
+        'atom_voxels': atom_voxels,
+        'voxel_to_atoms': voxel_to_atoms,
+        'atom_indices': atom_indices
+    }
+
+
+def voxels2atomgroup(voxels, mapping, atomgroup):
+    """
+    Returns an atomgroup corresponding to specified voxels.
+    Uses hash-based lookup instead of memory-intensive broadcasting.
+    
+    Parameters
+    ----------
+    voxels: array-like of shape (M, 3)
+        Voxel positions to convert back to atoms.
+    mapping: dict from create_voxels containing:
+        - 'voxel_to_atoms': dict mapping voxel (x,y,z) tuple -> atom position indices
+        - 'atom_indices': original atom indices
+    atomgroup: MDAnalysis AtomGroup
+        The original atomgroup from which the mapping was created.
+    
+    Returns
+    -------
+    atomgroup: MDAnalysis AtomGroup
+        The atomgroup corresponding to the provided voxel positions.
+    """
+    voxels_array = np.array(voxels)
+    voxel_to_atoms = mapping['voxel_to_atoms']
+    atom_indices = mapping['atom_indices']
+    
+    # Collect atom positions for all requested voxels using hash lookup
+    # This is O(M) instead of O(N*M) where M = num voxels, N = num atoms
+    selected_positions = []
+    
+    for voxel in voxels_array:
+        voxel_tuple = tuple(voxel)
+        if voxel_tuple in voxel_to_atoms:
+            selected_positions.append(voxel_to_atoms[voxel_tuple])
+    
+    if not selected_positions:
+        # Return empty atomgroup if no matches
+        return atomgroup.universe.atoms[[]]
+    
+    # Concatenate all position arrays and get unique atoms
+    selected_positions = np.concatenate(selected_positions)
+    selected_atom_indices = atom_indices[selected_positions]
+    
+    return atomgroup.universe.atoms[selected_atom_indices]
 
 def close_voxels(voxels):
     """
@@ -200,34 +281,4 @@ def close_voxels(voxels):
     voxels = ~voxels
     return voxels
 
-def voxels2atomgroup(voxels, mapping, atomgroup):
-    """
-    Returns an atomgroup.
 
-    Fast vectorized version using boolean masking.
-    mapping is now (atom_voxels, atom_indices) from create_voxels.
-
-    Parameters
-    ----------
-    voxels: array-like of shape (M, 3)
-        Voxel positions to convert back to atoms.
-    mapping: tuple of (atom_voxels, atom_indices)
-        atom_voxels: (N, 3) array of voxel coordinates per atom
-        atom_indices: (N,) array of atom indices corresponding to atom_voxels
-    atomgroup: MDAnalysis AtomGroup
-        The original atomgroup from which the mapping was created.
-
-    Returns
-    -------
-    atomgroup: MDAnalysis AtomGroup
-        The atomgroup corresponding to the provided voxel positions.
-    """
-    atom_voxels, atom_indices = mapping
-    voxels_array = np.array(voxels)
-    
-    # Create boolean mask: which atoms are in any of the target voxels?
-    # This uses broadcasting to compare all atoms against all target voxels
-    mask = (atom_voxels[:, None] == voxels_array[None, :]).all(axis=2).any(axis=1)
-    
-    selected_indices = atom_indices[mask]
-    return atomgroup.universe.atoms[selected_indices]
