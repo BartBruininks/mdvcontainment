@@ -1,5 +1,8 @@
 import numpy as np
 
+# Cython
+from .atoms_voxels_mapping import create_efficient_mapping_cy, voxels2atomgroup_cy
+
 def dim2lattice(x, y, z, alpha=90, beta=90, gamma=90):
     """Convert dimensions (lengths/angles) to lattice matrix.
 
@@ -140,7 +143,27 @@ def _voxelate_atomgroup(atomgroup, resolution, max_offset=0.05):
         
     return voxels, nbox
 
-import numpy as np
+def _create_efficient_mapping(voxels, atom_indices):
+    """
+    Creates a memory-efficient mapping structure using hash-based indexing.
+    
+    Parameters
+    ----------
+    voxels: (N, 3) array of voxel coordinates per atom
+    atom_indices: (N,) array of atom indices
+    
+    Returns
+    -------
+    mapping: dict containing:
+        - 'atom_voxels': (N, 3) array mapping each atom to its voxel coords
+        - 'voxel_to_atoms': dict mapping voxel coords (as tuple) -> array of atom indices
+        - 'atom_indices': original atom indices array
+    """
+    # Ensure correct dtypes
+    voxels = np.asarray(voxels, dtype=np.int32)
+    atom_indices = np.asarray(atom_indices, dtype=np.int64)
+    
+    return create_efficient_mapping_cy(voxels, atom_indices)
 
 def create_voxels(atomgroup, resolution, max_offset=0.05, return_mapping=True):
     """
@@ -180,45 +203,6 @@ def create_voxels(atomgroup, resolution, max_offset=0.05, return_mapping=True):
     else:
         return explicit, None
 
-
-def _create_efficient_mapping(voxels, atom_indices):
-    """
-    Creates a memory-efficient mapping structure using hash-based indexing.
-    
-    Parameters
-    ----------
-    voxels: (N, 3) array of voxel coordinates per atom
-    atom_indices: (N,) array of atom indices
-    
-    Returns
-    -------
-    mapping: dict containing:
-        - 'atom_voxels': (N, 3) array mapping each atom to its voxel coords
-        - 'voxel_to_atoms': dict mapping voxel coords (as tuple) -> array of atom indices
-        - 'atom_indices': original atom indices array
-    """
-    # Keep the simple atom -> voxel mapping (memory efficient: just coordinates)
-    atom_voxels = voxels.copy()
-    
-    # Build reverse index: voxel -> atoms
-    # This is sparse and only stores unique voxels
-    voxel_to_atoms = {}
-    for i, voxel_coord in enumerate(voxels):
-        voxel_tuple = tuple(voxel_coord)
-        if voxel_tuple not in voxel_to_atoms:
-            voxel_to_atoms[voxel_tuple] = []
-        voxel_to_atoms[voxel_tuple].append(i)
-    
-    # Convert lists to numpy arrays for faster indexing
-    voxel_to_atoms = {k: np.array(v, dtype=np.int32) for k, v in voxel_to_atoms.items()}
-    
-    return {
-        'atom_voxels': atom_voxels,
-        'voxel_to_atoms': voxel_to_atoms,
-        'atom_indices': atom_indices
-    }
-
-
 def voxels2atomgroup(voxels, mapping, atomgroup):
     """
     Returns an atomgroup corresponding to specified voxels.
@@ -239,26 +223,19 @@ def voxels2atomgroup(voxels, mapping, atomgroup):
     atomgroup: MDAnalysis AtomGroup
         The atomgroup corresponding to the provided voxel positions.
     """
-    voxels_array = np.array(voxels)
+    voxels_array = np.asarray(voxels, dtype=np.int32)
     voxel_to_atoms = mapping['voxel_to_atoms']
     atom_indices = mapping['atom_indices']
     
-    # Collect atom positions for all requested voxels using hash lookup
-    # This is O(M) instead of O(N*M) where M = num voxels, N = num atoms
-    selected_positions = []
-    
-    for voxel in voxels_array:
-        voxel_tuple = tuple(voxel)
-        if voxel_tuple in voxel_to_atoms:
-            selected_positions.append(voxel_to_atoms[voxel_tuple])
-    
-    if not selected_positions:
-        # Return empty atomgroup if no matches
+    if len(voxels_array) == 0:
         return atomgroup.universe.atoms[[]]
     
-    # Concatenate all position arrays and get unique atoms
-    selected_positions = np.concatenate(selected_positions)
-    selected_atom_indices = atom_indices[selected_positions]
+    selected_atom_indices = voxels2atomgroup_cy(
+        voxels_array, voxel_to_atoms, atom_indices
+    )
+    
+    if len(selected_atom_indices) == 0:
+        return atomgroup.universe.atoms[[]]
     
     return atomgroup.universe.atoms[selected_atom_indices]
 
