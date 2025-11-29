@@ -7,7 +7,7 @@ Robust and fast containment charaterization for (periodic) point clouds and voxe
 
 **M**olecular **D**ynamics **V**oxel **Containment** yields a robust characterization of the inside and outside hierarchy for point clouds in periodic spaces of dimensionality three or lower (e.g. R^3/Z^3).
 
-Using an MDAnalysis atomgroup, bead selection and resolution, a density grid is created. This density grid is segmented using connected components, and graph logic is utilized to solve the topological identification of containment (insides and outsides). The final output is a set of Directed Acyclic Graphs (DAGs) running from the largest container to the smallest (from outside inwards in graph space). This containment logic can then be used to analyse or manipulate the systems.
+Using an MDAnalysis atomgroup and resolution, a density grid is created by pbc aware binning of the particle positions. This density grid is segmented using connected components, and graph logic is utilized to solve the topological identification of containment (insides and outsides). The final output is a set of Directed Acyclic Graphs (DAGs) running from the largest container to the smallest (from outside inwards in graph space). This containment logic can then be used to analyse or manipulate the systems.
 
  *Any complex configuration of (non)periodic segments is supported by this algorithm in a fast, robust, unambiguous, deterministic and rot+trans invarient (up to voxel discretization) manner.*
 
