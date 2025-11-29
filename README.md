@@ -112,10 +112,10 @@ print(containment)
 <br>
 
 ```
-Containment Graph with 3 components (component: nvoxels):
-└── [-2: 54461]
-    └── [1: 15403]
-        └── [-1: 5136]
+Containment Graph with 3 components (component: nvoxels: rank):
+└── [-2: 54461: 3]
+    └── [1: 15403: 0]
+        └── [-1: 5136: 0]
 ```
 </details>
 
