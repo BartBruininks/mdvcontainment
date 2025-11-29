@@ -62,13 +62,20 @@ def get_color_mapping(unique_labels):
     """
     # Set the color map
     colors = plt.cm.tab20c(range(len(unique_labels)))
-    color_map = {label: colors[i] for i, label in enumerate(unique_labels)}
+    # Sort the labels so they are in alphabetical order
+    color_map = {label: colors[i] for i, label in enumerate(sorted(unique_labels))}
 
     return color_map
 
 def plot_pie_chart(data, ax, color_map, cutoff=10):
-    labels = list(data.keys())
-    sizes = list(data.values())
+    labels = np.array(list(data.keys()))
+    sizes = np.array(list(data.values()))
+
+    # Sort the labels so they are in alphabetical order
+    sorting_indices = np.argsort(labels)
+    labels = labels[sorting_indices]
+    sizes = sizes[sorting_indices]
+
     colors = [color_map[label] for label in labels]
 
     # Calculate percentages
