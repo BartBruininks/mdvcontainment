@@ -239,3 +239,54 @@ def create_containment_graph(is_contained_dict, unique_components, component_con
                 is_not_contained.add(neighbor)
                 stack.add(neighbor)
     return containment_graph
+
+def format_dag(G, node, ranks, counts, prefix='', is_last=True):
+    """
+    Recursively format a DAG node and its children as a string.
+    
+    Args:
+        G: NetworkX DAG
+        node: Current node to format
+        ranks: Dictionary of ranks per node
+        counts: Dictionary of counts per node, or False to omit counts
+        prefix: String prefix for current line (for tree structure)
+        is_last: Whether this node is the last child of its parent
+    
+    Returns:
+        String representation of the node and its subtree
+    """
+    connector = '└── ' if is_last else '├── '
+    
+    if counts is not False:
+        result = f"{prefix}{connector}[{node}: {counts[node]}: {ranks[node]}]\n"
+    else:
+        result = f"{prefix}{connector}[{node}: {ranks[node]}]\n"
+    
+    children = list(G.successors(node))
+    for i, child in enumerate(children):
+        new_prefix = prefix + ('    ' if is_last else '│   ')
+        result += format_dag(G, child, ranks, counts, new_prefix, i == len(children) - 1)
+    return result
+
+def format_dag_structure(G, ranks, counts=False):
+    """
+    Format the entire DAG structure as a string.
+    
+    Args:
+        G: NetworkX graph
+        ranks: Dictionary of ranks per node
+        counts: Dictionary of counts per node, or False to omit counts
+    
+    Returns:
+        String representation of the entire DAG
+    """
+    if counts is not False:
+        result = f'Containment Graph with {len(G.nodes())} components (component: nvoxels: rank):\n'
+    else:
+        result = f'Containment Graph with {len(G.nodes())} components (component: rank):\n'
+    
+    roots = [node for node, in_degree in G.in_degree() if in_degree == 0]
+    
+    for i, root in enumerate(roots):
+        result += format_dag(G, root, ranks, counts, '', i == len(roots) - 1)
+    return result

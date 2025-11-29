@@ -16,7 +16,6 @@ def get_path_matrix(graph, key='value'):
         path.append((source, sink, *weight))
     return np.array(path)
 
-
 def get_path_node_array(path_matrix):
     """
     Returns a list of the order of nodes in the path matrix.
@@ -30,7 +29,6 @@ def get_path_node_array(path_matrix):
         node_list.append(edge[1])
     return np.array(node_list)
 
-
 def get_path_edge_array(path_matrix):
     """
     Returns a list of the order of nodes in the path matrix.
@@ -39,7 +37,6 @@ def get_path_edge_array(path_matrix):
     for edge in path_matrix:
         edge_list.append(edge[2:])
     return np.vstack(edge_list)
-
 
 def get_cycles(path_matrix):
     """
@@ -71,7 +68,6 @@ def get_cycles(path_matrix):
         visited[node] = idx
     return node_cycles, edge_cycles
 
-
 def get_edge_cycle_matrix(edge_cycles):
     """
     Returns the matrix of the total cycle vectors.
@@ -81,7 +77,6 @@ def get_edge_cycle_matrix(edge_cycles):
         cycle_vector = np.sum(cycle, 0)
         cycle_vectors.append(cycle_vector)
     return np.array(cycle_vectors)
-
 
 def get_rank_from_edge_cycle_matrix(edge_cycle_matrix):
     """
@@ -99,7 +94,6 @@ def get_rank_from_edge_cycle_matrix(edge_cycle_matrix):
         if singular_value > 0.0001:
             rank += 1
     return rank
-
 
 def get_rank(graph, key='cost'):
     """
@@ -139,8 +133,6 @@ def make_relabel_dicts(positive_subgraphs, negative_subgraphs):
         
     return relabel_dict_c2l, relabel_dict_l2c
 
-
-#@profile
 def get_ranks(positive_subgraphs, negative_subgraphs, nonp_unique_labels, component2labels, labels2component, contact_graph):
     """
     Returns the ranks for the components and their complements as two dicts.
@@ -188,6 +180,68 @@ def get_ranks(positive_subgraphs, negative_subgraphs, nonp_unique_labels, compon
     
     return component_ranks, complement_ranks
 
+def get_nonp_is_contained(labeled_grid, nonp_unique_labels, write_structures=False):
+    """
+    Returns containment status for the slab case and the component ranks.
+    
+    Each label is set to be either contained or not, based on the following
+    criteria:
+        1) The relevant dimensions for the outside are picked dynamically
+            based on the two largest axis in the shape of the
+            input array. The thinnest dimension is assumed to be the slice
+            thickness.
+        2) Any label which has a voxel in the relevant hollow cylinder
+            formed by the minimal and maximal positions of the two picked
+            dimensions is regarded an absolute outside.    
+
+    Parameters
+    ----------
+    labeled_grid: int32 3D array
+        The labeled grid where each voxel has a label integer.
+    nonp_unique_labels: array-like
+        The unique labels in the labeled grid.
+    write_structures: bool
+        Whether to write a gro file of the mask.
+
+    Returns
+    -------
+    is_contained_dict: dict
+        Dict of label:int -> is_contained:bool
+    component_ranks: dict
+        Dict of label:int -> rank:int
+    """
+    # Find the relevant dimensions which define the bounding cylinder.
+    shape = labeled_grid.shape
+    relevant_dimensions = np.argsort(shape)[1:]
+    
+    # Create the edge mask to assign outside.
+    mask = np.zeros(shape, dtype=bool)
+    if 0 in relevant_dimensions:
+        mask[ 0, :, :] = True
+        mask[-1, :, :] = True
+    if 1 in relevant_dimensions:
+        mask[ :, 0, :] = True
+        mask[ :,-1, :] = True
+    if 2 in relevant_dimensions:
+        mask[ :, :, 0] = True
+        mask[ :, :,-1] = True
+    
+    # Write mask if required
+    if write_structures:
+        voxels_to_gro('mask.gro', mask)
+    
+    # Create the is contained dict
+    component_ranks = {}    
+    is_contained_dict = {}
+    outsides = np.unique(labeled_grid[mask])
+    for label in nonp_unique_labels:
+        if label in outsides:
+            component_ranks[label] = 1 
+            is_contained_dict[label] = False
+        else:
+            component_ranks[label] = 0
+            is_contained_dict[label] = True      
+    return is_contained_dict, component_ranks
 
 def get_is_contained(component_ranks, complement_ranks):
     """

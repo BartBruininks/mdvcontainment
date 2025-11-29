@@ -66,7 +66,7 @@ def get_color_mapping(unique_labels):
 
     return color_map
 
-def plot_pie_chart(data, ax, color_map, cutoff=10, relabel_dict=False):
+def plot_pie_chart(data, ax, color_map, cutoff=10):
     labels = list(data.keys())
     sizes = list(data.values())
     colors = [color_map[label] for label in labels]
@@ -77,7 +77,6 @@ def plot_pie_chart(data, ax, color_map, cutoff=10, relabel_dict=False):
 
     # Filter labels and percentages for the pie chart display
     display_labels = [label if pct >= cutoff else '' for label, pct in zip(labels, percentages)]
-    display_percentages = [f'{pct:.1f}%' if pct >= cutoff else '' for pct in percentages]
 
     wedges, texts, autotexts = ax.pie(
         sizes, labels=display_labels, colors=colors, autopct=lambda pct: f'{pct:.1f}%' if pct >= cutoff else '', startangle=140

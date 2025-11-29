@@ -1,11 +1,12 @@
 # Python External 
+from abc import ABC
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 
 # Python
-from .rank_logic import get_ranks, get_is_contained
-from .graph_logic import draw_graph, create_contact_graph, get_mapping_dicts, get_subgraphs, create_component_contact_graph, create_containment_graph
+from .rank_logic import get_ranks, get_is_contained, get_nonp_is_contained
+from .graph_logic import draw_graph, create_contact_graph, get_mapping_dicts, get_subgraphs, create_component_contact_graph, create_containment_graph, format_dag_structure
 from .voxels_to_gro import voxels_to_gro
 from .label import label_3d_grid, create_components_grid
 
@@ -13,68 +14,6 @@ from .label import label_3d_grid, create_components_grid
 from .find_label_contacts import find_label_contacts
 from .find_bridges import find_bridges 
 
-def nonp_is_contained(labeled_grid, nonp_unique_labels, write_structures=False):
-    """
-    Returns containment status for the slab case and the component ranks.
-    
-    Each label is set to be either contained or not, based on the following
-    criteria:
-        1) The relevant dimensions for the outside are picked dynamically
-            based on the two largest axis in the shape of the
-            input array. The thinnest dimension is assumed to be the slice
-            thickness.
-        2) Any label which has a voxel in the relevant hollow cylinder
-            formed by the minimal and maximal positions of the two picked
-            dimensions is regarded an absolute outside.    
-
-    Parameters
-    ----------
-    labeled_grid: int32 3D array
-        The labeled grid where each voxel has a label integer.
-    nonp_unique_labels: array-like
-        The unique labels in the labeled grid.
-    write_structures: bool
-        Whether to write a gro file of the mask.
-
-    Returns
-    -------
-    is_contained_dict: dict
-        Dict of label:int -> is_contained:bool
-    component_ranks: dict
-        Dict of label:int -> rank:int
-    """
-    # Find the relevant dimensions which define the bounding cylinder.
-    shape = labeled_grid.shape
-    relevant_dimensions = np.argsort(shape)[1:]
-    
-    # Create the edge mask to assign outside.
-    mask = np.zeros(shape, dtype=bool)
-    if 0 in relevant_dimensions:
-        mask[ 0, :, :] = True
-        mask[-1, :, :] = True
-    if 1 in relevant_dimensions:
-        mask[ :, 0, :] = True
-        mask[ :,-1, :] = True
-    if 2 in relevant_dimensions:
-        mask[ :, :, 0] = True
-        mask[ :, :,-1] = True
-    
-    # Write mask if required
-    if write_structures:
-        voxels_to_gro('mask.gro', mask)
-    
-    # Create the is contained dict
-    component_ranks = {}    
-    is_contained_dict = {}
-    outsides = np.unique(labeled_grid[mask])
-    for label in nonp_unique_labels:
-        if label in outsides:
-            component_ranks[label] = 1 
-            is_contained_dict[label] = False
-        else:
-            component_ranks[label] = 0
-            is_contained_dict[label] = True      
-    return is_contained_dict, component_ranks
 
 def calc_containment_graph(boolean_grid, verbose=False, write_structures=False, draw_graphs=False, slab=False):
     """
@@ -169,7 +108,7 @@ def calc_containment_graph(boolean_grid, verbose=False, write_structures=False, 
         if verbose:
             print(f'Containment status: {is_contained_dict}')
     else:
-        is_contained_dict, component_ranks = nonp_is_contained(nonp_labeled_grid, nonp_unique_labels, write_structures)
+        is_contained_dict, component_ranks = get_nonp_is_contained(nonp_labeled_grid, nonp_unique_labels, write_structures)
         
     if not slab:
         # Create the component level contact graph. Using an iterative approach we 
@@ -194,100 +133,112 @@ def calc_containment_graph(boolean_grid, verbose=False, write_structures=False, 
     containment_graph = create_containment_graph(is_contained_dict, unique_components, component_contact_graph)
     return containment_graph, component_contact_graph, components_grid, component_ranks, contact_graph
 
-def format_dag(G, node, ranks, counts, prefix='', is_last=True):
+
+class VoxelContainmentBase:
     """
-    Recursively format a DAG node and its children as a string.
+    Abstract base class for VoxelContainment and VoxelContainmentView.
     
-    Args:
-        G: NetworkX DAG
-        node: Current node to format
-        ranks: Dictionary of ranks per node
-        counts: Dictionary of counts per node, or False to omit counts
-        prefix: String prefix for current line (for tree structure)
-        is_last: Whether this node is the last child of its parent
-    
-    Returns:
-        String representation of the node and its subtree
+    Contains all shared functionality that works on any voxel containment 
+    (original or view). Subclasses must set:
+    - self._base: Reference to the data owner (VoxelContainment instance)
+    - self.containment_graph: The graph to operate on (property)
     """
-    connector = '└── ' if is_last else '├── '
     
-    if counts is not False:
-        result = f"{prefix}{connector}[{node}: {counts[node]}: {ranks[node]}]\n"
-    else:
-        result = f"{prefix}{connector}[{node}: {ranks[node]}]\n"
-    
-    children = list(G.successors(node))
-    for i, child in enumerate(children):
-        new_prefix = prefix + ('    ' if is_last else '│   ')
-        result += format_dag(G, child, ranks, counts, new_prefix, i == len(children) - 1)
-    return result
-
-
-def format_dag_structure(G, ranks, counts=False):
-    """
-    Format the entire DAG structure as a string.
-    
-    Args:
-        G: NetworkX graph
-        ranks: Dictionary of ranks per node
-        counts: Dictionary of counts per node, or False to omit counts
-    
-    Returns:
-        String representation of the entire DAG
-    """
-    if counts is not False:
-        result = f'Containment Graph with {len(G.nodes())} components (component: nvoxels: rank):\n'
-    else:
-        result = f'Containment Graph with {len(G.nodes())} components (component: rank):\n'
-    
-    roots = [node for node, in_degree in G.in_degree() if in_degree == 0]
-    
-    for i, root in enumerate(roots):
-        result += format_dag(G, root, ranks, counts, '', i == len(roots) - 1)
-    return result
-
-class VoxelContainment():
-    def __init__(self, grid, verbose=False, write_structures=False, draw_graphs=False, counts=True, slab=False):
-        """
-        A Containment graph is a DAG which has a parent pointing to its children with an edge.
-        """
-        # Read input
-        self.grid = grid
-        self._verbose = verbose
-        self._write_structures = write_structures
-        self._draw_graphs = draw_graphs
-        self.slab = slab
-
-        # Set all containment output
-        self.containment_graph, self.component_contact_graph, self.components_grid, self.component_ranks, self.nonp_label_contact_graph = self._calc_containment()
-        # Instantiate the inverted graph to False, if it is needed
-        #  it is generated only once.
-        self._inv_containment_graph = False
-
-        # Set the voxel counts per label if required
-        self.voxel_counts = counts
-        if self.voxel_counts:
-            self.voxel_counts = self.get_counts(self.components_grid)
-        # Sets all nodes
-        self.nodes = self._get_nodes()
-        # Sets the root nodes
-        self.root_nodes = self._get_roots()
-        # Set leaf nodes
-        self.leaf_nodes = self._get_leaves()
-
-    def _calc_containment(self):
-        return calc_containment_graph(
-            self.grid, verbose=self._verbose, write_structures=self._write_structures, draw_graphs=self._draw_graphs, slab=self.slab)
-
     def __str__(self):
         return format_dag_structure(self.containment_graph, self.component_ranks, self.voxel_counts)
-
-    def _get_nodes(self):
+    
+    # Properties - delegate to _base or compute from current graph state
+    
+    @property
+    def grid(self):
+        """Reference to the original grid."""
+        return self._base._grid
+    
+    @property
+    def slab(self):
+        """Slab setting from base containment."""
+        return self._base._slab
+    
+    @property
+    def component_contact_graph(self):
+        """Contact graph from base containment."""
+        return self._base._component_contact_graph
+    
+    @property
+    def components_grid(self):
+        """Reference to the base components grid."""
+        return self._base._components_grid
+    
+    @property
+    def nonp_label_contact_graph(self):
+        """Non-periodic label contact graph from base containment."""
+        return self._base._nonp_label_contact_graph
+    
+    @property
+    def component_ranks(self):
+        """Return the ranks computed during construction."""
+        return self._base._component_ranks
+    
+    @property
+    def voxel_counts(self):
         """
-        Returns all nodes (components) in the containment graph.
+        Voxel counts for each node in the current containment graph.
+        Computed based on the actual voxels represented by each node.
         """
+        if not self._base.voxel_counts:
+            return False
+        
+        counts = {}
+        for node in self.nodes:
+            # Get all original nodes this node represents
+            original_nodes = self._resolve_nodes_to_original([node])
+            counts[node] = sum(
+                self._base.voxel_counts.get(orig, 0) for orig in original_nodes
+            )
+        return counts
+    
+    @property
+    def nodes(self):
+        """All nodes in the current containment graph."""
         return list(self.containment_graph.nodes)
-
+    
+    @property
+    def root_nodes(self):
+        """Root nodes (nodes with no parents) in the current containment graph."""
+        return [n for n, d in self.containment_graph.in_degree() if d == 0]
+    
+    @property
+    def leaf_nodes(self):
+        """Leaf nodes (nodes with no children) in the current containment graph."""
+        return [n for n, d in self.containment_graph.out_degree() if d == 0]
+    
+    # Helper method for node resolution (override in views)
+    
+    def _resolve_nodes_to_original(self, nodes):
+        """
+        Resolve nodes to their original node IDs in the base containment.
+        
+        For VoxelContainment: nodes are already original, return as-is.
+        For VoxelContainmentView: expand view nodes to all merged original nodes.
+        
+        Parameters
+        ----------
+        nodes : list
+            Node IDs in the current graph.
+        
+        Returns
+        -------
+        list
+            Original node IDs in the base containment.
+        """
+        return nodes  # Default: no transformation
+    
+    # Shared methods - work for both VoxelContainment and VoxelContainmentView
+    
+    def _get_nodes(self):
+        """Returns all nodes (components) in the containment graph."""
+        return self.nodes
+    
     def get_counts(self, grid=None):
         """
         Returns the number of elements in each component as a dict.
@@ -296,40 +247,36 @@ class VoxelContainment():
         ----------
         grid: int32 3D array, optional
             The components grid to calculate counts for. If None, uses
-            self.components_grid. 
+            cached voxel_counts.
         
         Returns
         -------
         counts_dict: dict
             Dict of component:int -> voxel_count:int 
         """
-        if grid is None:
-            grid = self.components_grid
-        return dict(zip(*np.unique(grid, return_counts=True)))
-
+        if grid is not None:
+            # If a custom grid is provided, count it directly
+            return dict(zip(*np.unique(grid, return_counts=True)))
+        else:
+            # Return the cached counts
+            return self.voxel_counts if self.voxel_counts else {}
+    
     def _get_roots(self):
-        """
-        Returns a list of root nodes (absolute outsides).
-        """
-        return list((node for node, in_degree in self.containment_graph.in_degree() if in_degree == 0))
-
+        """Returns a list of root nodes (absolute outsides)."""
+        return self.root_nodes
+    
     def _get_leaves(self):
-        """
-        Returns a list of leaf nodes (deepest level of containment).
-        """
-        return list((node for node, out_degree in self.containment_graph.out_degree() if out_degree == 0))
-
+        """Returns a list of leaf nodes (deepest level of containment)."""
+        return self.leaf_nodes
+    
     def _get_inverted_containment_graph(self):
         """
-        Returns the inverted containment graph, if it is not
-        yet present it creates it and binds it to self._inv_containment_graph.
+        Returns the inverted containment graph, creating and caching it if needed.
         """
-        if self._inv_containment_graph:
-            return self._inv_containment_graph
-        else:
+        if not hasattr(self, '_inv_containment_graph') or not self._inv_containment_graph:
             self._inv_containment_graph = self.containment_graph.reverse()
-            return self._inv_containment_graph
-
+        return self._inv_containment_graph
+    
     def get_child_nodes(self, start_nodes):
         """
         Returns the children (neighbors) of the given nodes in the containment graph. 
@@ -337,7 +284,8 @@ class VoxelContainment():
         """
         all_children = []
         for start_node in start_nodes:
-            all_children += list(self.containment_graph.neighbors(start_node))
+            if start_node in self.containment_graph:
+                all_children += list(self.containment_graph.neighbors(start_node))
         return sorted(set(all_children))
     
     def get_downstream_nodes(self, start_nodes):
@@ -346,23 +294,24 @@ class VoxelContainment():
         """
         downstream_nodes = []
         for node in start_nodes:
-            # Perform a depth-first search traversal from the start_node
-            downstream_nodes += list(nx.dfs_postorder_nodes(self.containment_graph, node))[::-1]
+            if node in self.containment_graph:
+                # Perform a depth-first search traversal from the start_node
+                downstream_nodes += list(nx.dfs_postorder_nodes(self.containment_graph, node))[::-1]
         return sorted(set(downstream_nodes))
-
+    
     def get_upstream_nodes(self, start_nodes):
         """
         Returns all nodes which contain the specified nodes (list), including the nodes itself.
         """
-        
         # Create a reversed version of the graph
         reversed_G = self._get_inverted_containment_graph()
         upstream_nodes = []
         for node in start_nodes:
-            # Perform a depth-first search traversal from the start_node
-            upstream_nodes += list(nx.dfs_postorder_nodes(reversed_G, node))[::-1]
+            if node in reversed_G:
+                # Perform a depth-first search traversal from the start_node
+                upstream_nodes += list(nx.dfs_postorder_nodes(reversed_G, node))[::-1]
         return sorted(set(upstream_nodes))
-
+    
     def get_parent_nodes(self, start_nodes):
         """
         Returns the parents (neighbors) of the given nodes in the containment graph. 
@@ -371,37 +320,41 @@ class VoxelContainment():
         reversed_G = self._get_inverted_containment_graph()
         all_parents = []
         for start_node in start_nodes:
-            all_parents += list(reversed_G.neighbors(start_node))
+            if start_node in reversed_G:
+                all_parents += list(reversed_G.neighbors(start_node))
         return sorted(set(all_parents))
-
+    
     def get_total_voxel_count(self, nodes):
         """
         Returns the total amount of voxels in the list of nodes.
         """
+        if not self.voxel_counts:
+            return 0
         total_count = 0
         for node in nodes:
-            total_count += self.voxel_counts[node]
+            total_count += self.voxel_counts.get(node, 0)
         return total_count
-
+    
     def get_voxel_mask(self, nodes):
         """
-        Returns as boolean mask over the components grid where the voxel
+        Returns a boolean mask over the components grid where the voxel
         value is in the list of provided nodes.
+        
+        This method automatically handles view node expansion.
         """
-        return np.isin(self.components_grid, nodes)
-
+        original_nodes = self._resolve_nodes_to_original(nodes)
+        return np.isin(self.components_grid, original_nodes)
+    
     def get_voxel_positions(self, nodes):
         """
-        Returns all the voxel indices as a Nx3 array which are part of the specified
-        nodes.
+        Returns all the voxel indices as a Nx3 array which are part of the specified nodes.
+        
+        This method automatically handles view node expansion.
         """
-        # Create a boolean mask where True indicates the values match the specified values
         mask = self.get_voxel_mask(nodes)
-
-        # Use np.where to find the indices where mask is True
         indices = np.where(mask)
         return np.array(indices).T
-
+    
     def format_containment(self, nodes=False):
         """
         Returns the selected nodes as a containment graph.
@@ -409,17 +362,273 @@ class VoxelContainment():
         By default prints the complete graph.
         """
         if nodes is not False:
-            string = format_dag_structure(self.containment_graph.subgraph(nodes), self.component_ranks, self.voxel_counts)
+            string = format_dag_structure(self.containment_graph.subgraph(nodes), 
+                                        self.component_ranks, self.voxel_counts)
         else:
-            string = format_dag_structure(self.containment_graph, self.component_ranks, self.voxel_counts)
+            string = format_dag_structure(self.containment_graph, 
+                                        self.component_ranks, self.voxel_counts)
         return string
-
+    
     def draw(self, nodes=False):
+        """Draw the containment graph."""
+        import matplotlib.pyplot as plt
+        
         if nodes is False:
             nx.draw_networkx(self.containment_graph)
         else:
             nx.draw_networkx(self.containment_graph.subgraph(nodes))
         plt.show()
     
+    def node_view(self, keep_nodes):
+        """
+        Create a view where only keep_nodes are visible.
+        
+        Parameters
+        ----------
+        keep_nodes : list
+            Nodes to keep in the view. Other nodes are merged upstream.
+        
+        Returns
+        -------
+        VoxelContainmentView
+            A view with the same API but merged nodes.
+        """
+        # Always create view from the original base
+        return VoxelContainmentView(self._base, keep_nodes)
+
+
+class VoxelContainment(VoxelContainmentBase):
+    """
+    Main voxel containment class that creates and owns the containment graph.
     
+    A Containment graph is a DAG which has a parent pointing to its children with an edge.
+    """
     
+    def __init__(self, grid, verbose=False, write_structures=False, draw_graphs=False, 
+                 counts=True, slab=False):
+        """
+        Parameters
+        ----------
+        grid : ndarray
+            Boolean 3D grid representing the voxelized structure.
+        verbose : bool
+            Enable verbose output.
+        write_structures : bool
+            Write structure files.
+        draw_graphs : bool
+            Draw graphs during computation.
+        counts : bool
+            Calculate voxel counts per component.
+        slab : bool
+            Process as a slab (disable PBC treatment).
+        """
+        # Store input parameters
+        self._grid = grid
+        self._verbose = verbose
+        self._write_structures = write_structures
+        self._draw_graphs = draw_graphs
+        self._slab = slab
+        
+        # CRITICAL: Set self-reference FIRST so properties work during init
+        self._base = self
+        
+        # Calculate containment
+        (self._containment_graph, 
+         self._component_contact_graph, 
+         self._components_grid, 
+         self._component_ranks,
+         self._nonp_label_contact_graph) = self._calc_containment()
+        
+        # Initialize inverted graph flag
+        self._inv_containment_graph = False
+        
+        # Compute and cache voxel counts if required
+        if counts:
+            self._voxel_counts = self._compute_counts(self._components_grid)
+        else:
+            self._voxel_counts = False
+    
+    def _calc_containment(self):
+        """Calculate the containment graph."""
+        return calc_containment_graph(
+            self._grid, verbose=self._verbose, write_structures=self._write_structures, 
+            draw_graphs=self._draw_graphs, slab=self._slab)
+    
+    def _compute_counts(self, grid):
+        """Compute voxel counts for each component."""
+        return dict(zip(*np.unique(grid, return_counts=True)))
+    
+    # Override properties to return owned data or cached values
+    
+    @property
+    def containment_graph(self):
+        """Return the containment graph computed during construction."""
+        return self._containment_graph
+    
+    @property
+    def voxel_counts(self):
+        """Return the voxel counts computed during construction."""
+        return self._voxel_counts
+
+
+class VoxelContainmentView(VoxelContainmentBase):
+    """
+    A view on a VoxelContainment that merges specified nodes with their parents.
+    Nodes not in keep_nodes are merged upstream, maintaining the DAG structure.
+    
+    This view provides the same API as VoxelContainment but with lazy remapping
+    of nodes. Memory overhead is minimal as the underlying components_grid is
+    shared with the base containment.
+    
+    Parameters
+    ----------
+    base_containment : VoxelContainment
+        The base containment object to create a view on.
+    keep_nodes : list or set
+        Nodes to keep visible in the view. Other nodes are merged upstream
+        to their nearest kept ancestor. If a removed node has no kept ancestor,
+        it is dropped entirely.
+    
+    Examples
+    --------
+    >>> # Original: A -> B -> C, where B is small
+    >>> containment = VoxelContainment(grid)
+    >>> # Create view without B (merges B into A)
+    >>> view = containment.node_view([A, C])
+    >>> # Now A contains all of B's voxels
+    >>> view.containment_graph.edges()  # [(A, C)]
+    """
+    
+    def __init__(self, base_containment, keep_nodes):
+        # Store reference to base (handles nested views automatically)
+        self._base = base_containment._base
+        self._keep_nodes = set(keep_nodes)
+        
+        # Build the remapping once at construction
+        self._node_map = self._build_node_map()
+        self._reverse_node_map = self._build_reverse_node_map()
+        self._view_graph = self._build_view_graph()
+        
+        # Initialize inverted graph flag
+        self._inv_containment_graph = None
+    
+    @property
+    def containment_graph(self):
+        """The view's containment graph with merged nodes."""
+        return self._view_graph
+    
+    def _resolve_nodes_to_original(self, nodes):
+        """
+        Expand view nodes to all original nodes they represent.
+        This is the key method that makes views work transparently.
+        """
+        original_nodes = []
+        for view_node in nodes:
+            original_nodes.extend(self._reverse_node_map.get(view_node, []))
+        return sorted(set(original_nodes))
+    
+    def _build_node_map(self):
+        """
+        Creates mapping: original_node -> view_node
+        Nodes not in keep_nodes are mapped to their nearest kept ancestor.
+        If no kept ancestor exists, the node is dropped (maps to None).
+        """
+        node_map = {}
+        
+        # First pass: map kept nodes to themselves
+        for node in self._keep_nodes:
+            node_map[node] = node
+        
+        # Second pass: map removed nodes to nearest kept ancestor
+        try:
+            topo_order = list(nx.topological_sort(self._base.containment_graph))
+        except:
+            topo_order = self._base.nodes
+        
+        for node in topo_order:
+            if node in self._keep_nodes:
+                continue
+            
+            parents = self._base.get_parent_nodes([node])
+            
+            if not parents:
+                node_map[node] = None
+            else:
+                mapped_ancestor = None
+                for parent in parents:
+                    if parent in self._keep_nodes:
+                        mapped_ancestor = parent
+                        break
+                    elif parent in node_map:
+                        mapped_ancestor = node_map[parent]
+                        if mapped_ancestor:
+                            break
+                
+                node_map[node] = mapped_ancestor
+        
+        return node_map
+    
+    def _build_reverse_node_map(self):
+        """
+        Creates reverse mapping: view_node -> [original_nodes]
+        This tells us which original nodes are merged into each view node.
+        """
+        reverse_map = {node: [] for node in self._keep_nodes}
+        
+        for orig_node, view_node in self._node_map.items():
+            if view_node is not None:
+                reverse_map[view_node].append(orig_node)
+        
+        return reverse_map
+    
+    def _build_view_graph(self):
+        """
+        Construct the view graph with remapped edges.
+        Edges are created between kept nodes, skipping removed intermediate nodes.
+        """
+        view_graph = nx.DiGraph()
+        view_graph.add_nodes_from(self._keep_nodes)
+        
+        for u, v in self._base.containment_graph.edges():
+            mapped_u = self._node_map.get(u)
+            mapped_v = self._node_map.get(v)
+            
+            if mapped_u and mapped_v and mapped_u != mapped_v:
+                view_graph.add_edge(mapped_u, mapped_v)
+        
+        # Remove transitive edges to maintain minimal DAG structure
+        view_graph = nx.transitive_reduction(view_graph)
+        
+        return view_graph
+    
+    def get_original_nodes(self, view_node):
+        """
+        Get all original nodes that are merged into a view node.
+        
+        Parameters
+        ----------
+        view_node : int
+            A node ID in the view.
+        
+        Returns
+        -------
+        list
+            List of original node IDs merged into this view node.
+        """
+        return self._reverse_node_map.get(view_node, [])
+    
+    def get_view_node(self, original_node):
+        """
+        Get the view node that an original node is mapped to.
+        
+        Parameters
+        ----------
+        original_node : int
+            A node ID from the original containment.
+        
+        Returns
+        -------
+        int or None
+            The view node ID, or None if the original node was dropped.
+        """
+        return self._node_map.get(original_node)
