@@ -130,7 +130,7 @@ class ContainmentBase(ABC):
         atomgroup = self.get_atomgroup_from_voxel_positions(voxel_positions)
         return atomgroup
     
-    def node_view(self, keep_nodes):
+    def node_view(self, keep_nodes=None, min_size=0):
         """
         Create a view where only keep_nodes are visible.
         
@@ -142,6 +142,8 @@ class ContainmentBase(ABC):
         ----------
         keep_nodes : list
             Nodes to keep in the view. Other nodes are merged upstream.
+        min_size : int
+            Minimum size (in voxels) for a node plus its downstream nodes to be kept.
         
         Returns
         -------
@@ -161,6 +163,12 @@ class ContainmentBase(ABC):
         >>> # Original containment is unchanged
         >>> print(containment)  # Shows full structure
         """
+        if keep_nodes is None:
+            keep_nodes = self.voxel_containment.nodes
+
+        # Filter nodes on size if a min_size is provided
+        if min_size > 0:
+            keep_nodes = self.voxel_containment.filter_nodes_on_size(min_size)
         # Always create view from the original base, not from intermediate views
         return ContainmentView(self._base, keep_nodes)
     

@@ -378,8 +378,30 @@ class VoxelContainmentBase:
         else:
             nx.draw_networkx(self.containment_graph.subgraph(nodes))
         plt.show()
+
+    def filter_nodes_on_size(self, min_size):
+        """
+        Filter nodes based on their size (in voxels) -- includes their downstream nodes.
+        
+        Parameters
+        ----------
+        min_size : int
+            Minimum size (in voxels) for a node plus its downstream nodes to be kept.
+        
+        Returns
+        -------
+        list
+            List of nodes that meet the size requirement.
+        """
+        filtered_nodes = []
+        for node in self.nodes:
+            downstream = list(self.get_downstream_nodes([node]))
+            voxel_count = sum([self.voxel_counts[n] for n in downstream])
+            if voxel_count >= min_size:
+                filtered_nodes.append(int(node))
+        return filtered_nodes
     
-    def node_view(self, keep_nodes):
+    def node_view(self, keep_nodes=None, min_size=0):
         """
         Create a view where only keep_nodes are visible.
         
@@ -387,12 +409,21 @@ class VoxelContainmentBase:
         ----------
         keep_nodes : list
             Nodes to keep in the view. Other nodes are merged upstream.
+        min_size : int
+            Minimum size (in voxels) for a node plus its downstream nodes to be kept.
         
         Returns
         -------
         VoxelContainmentView
             A view with the same API but merged nodes.
         """
+        if keep_nodes is None:
+            keep_nodes = self.voxel_containment.nodes
+
+        # Filter nodes on size if a min_size is provided
+        if min_size > 0:
+            keep_nodes = self.voxel_containment.filter_nodes_on_size(min_size)
+        
         # Always create view from the original base
         return VoxelContainmentView(self._base, keep_nodes)
 
