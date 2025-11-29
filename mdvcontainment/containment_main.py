@@ -194,13 +194,14 @@ def calc_containment_graph(boolean_grid, verbose=False, write_structures=False, 
     containment_graph = create_containment_graph(is_contained_dict, unique_components, component_contact_graph)
     return containment_graph, component_contact_graph, components_grid, component_ranks, contact_graph
 
-def format_dag(G, node, counts, prefix='', is_last=True):
+def format_dag(G, node, ranks, counts, prefix='', is_last=True):
     """
     Recursively format a DAG node and its children as a string.
     
     Args:
         G: NetworkX DAG
         node: Current node to format
+        ranks: Dictionary of ranks per node
         counts: Dictionary of counts per node, or False to omit counts
         prefix: String prefix for current line (for tree structure)
         is_last: Whether this node is the last child of its parent
@@ -211,37 +212,38 @@ def format_dag(G, node, counts, prefix='', is_last=True):
     connector = '└── ' if is_last else '├── '
     
     if counts is not False:
-        result = f"{prefix}{connector}[{node}: {counts[node]}]\n"
+        result = f"{prefix}{connector}[{node}: {counts[node]}: {ranks[node]}]\n"
     else:
-        result = f"{prefix}{connector}[{node}]\n"
+        result = f"{prefix}{connector}[{node}: {ranks[node]}]\n"
     
     children = list(G.successors(node))
     for i, child in enumerate(children):
         new_prefix = prefix + ('    ' if is_last else '│   ')
-        result += format_dag(G, child, counts, new_prefix, i == len(children) - 1)
+        result += format_dag(G, child, ranks, counts, new_prefix, i == len(children) - 1)
     return result
 
 
-def format_dag_structure(G, counts=False):
+def format_dag_structure(G, ranks, counts=False):
     """
     Format the entire DAG structure as a string.
     
     Args:
         G: NetworkX graph
+        ranks: Dictionary of ranks per node
         counts: Dictionary of counts per node, or False to omit counts
     
     Returns:
         String representation of the entire DAG
     """
     if counts is not False:
-        result = f'Containment Graph with {len(G.nodes())} components (component: nvoxels):\n'
+        result = f'Containment Graph with {len(G.nodes())} components (component: nvoxels: rank):\n'
     else:
-        result = f'Containment Graph with {len(G.nodes())} components:\n'
+        result = f'Containment Graph with {len(G.nodes())} components (component: rank):\n'
     
     roots = [node for node, in_degree in G.in_degree() if in_degree == 0]
     
     for i, root in enumerate(roots):
-        result += format_dag(G, root, counts, '', i == len(roots) - 1)
+        result += format_dag(G, root, ranks, counts, '', i == len(roots) - 1)
     return result
 
 class VoxelContainment():
@@ -278,7 +280,7 @@ class VoxelContainment():
             self.grid, verbose=self._verbose, write_structures=self._write_structures, draw_graphs=self._draw_graphs, slab=self.slab)
 
     def __str__(self):
-        return format_dag_structure(self.containment_graph, self.voxel_counts)
+        return format_dag_structure(self.containment_graph, self.component_ranks, self.voxel_counts)
 
     def _get_nodes(self):
         """
@@ -407,9 +409,9 @@ class VoxelContainment():
         By default prints the complete graph.
         """
         if nodes is not False:
-            string = format_dag_structure(self.containment_graph.subgraph(nodes), self.voxel_counts)
+            string = format_dag_structure(self.containment_graph.subgraph(nodes), self.component_ranks, self.voxel_counts)
         else:
-            string = format_dag_structure(self.containment_graph, self.voxel_counts)
+            string = format_dag_structure(self.containment_graph, self.component_ranks, self.voxel_counts)
         return string
 
     def draw(self, nodes=False):
