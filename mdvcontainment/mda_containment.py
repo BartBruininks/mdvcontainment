@@ -54,17 +54,34 @@ class Containment():
 
         All voxel logic (selecting by component etc) can be found under self.voxel_containment.
         """
+        assert isinstance(atomgroup, mda.core.groups.AtomGroup), "Atomgroup must be an MDAnalysis AtomGroup."
         self.atomgroup = atomgroup
+        assert type(resolution) in [float, int], "Resolution must be a float or int."
         self.resolution = resolution
+        assert type(closing) == bool, "Closing must be a boolean."
         self.closing = closing
-        self.extrusion = extrusion
+        assert type(morph) == str, "Morph must be a string."
+        assert set(morph).issubset({'d', 'e'}), "Morph strings can only contain 'd' and 'e' characters."
+        self.morph = morph
+        assert type(slab) == bool, "Slab must be a boolean."
         self._slab = slab
+        assert type(max_offset) in [float, int], "Max_offset must be a float or int."
         self._max_offset = max_offset
+        assert type(verbose) == bool, "Verbose must be a boolean."
         self._verbose = verbose
+        assert type(write_structures) == bool, "Write_structures must be a boolean (write to mask.gro)."
         self._write_structures = write_structures
+        assert type(no_mapping) == bool, "No_mapping must be a boolean."
         self._no_mapping = no_mapping
+        assert type(return_counts) == bool, "Return_counts must be a boolean."
         self._return_counts = return_counts
+        assert type(betafactors) == bool, "Betafactors must be a boolean."
         self._betafactors = betafactors
+
+        if self.closing:
+            print("WARNING: The 'closing' parameter is deprecated and will be removed in future versions. Please use the 'morph' parameter with value 'de' instead.")
+            if self.morph != "":
+                print("WARNING: Both 'closing' and 'morph' parameters are set. The 'closing' operation will be applied before the 'morph' operations.")
 
         # Check for compatibility in settings
         if self._no_mapping and self._betafactors:
