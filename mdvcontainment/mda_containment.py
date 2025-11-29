@@ -2,11 +2,11 @@ import numpy as np
 
 import MDAnalysis as mda
 
-from .atomgroup_to_voxels import close_voxels, create_voxels, voxels2atomgroup
+from .atomgroup_to_voxels import create_voxels, voxels2atomgroup, morph_voxels
 from .containment_main import VoxelContainment
 
 class Containment():
-    def __init__(self, atomgroup, resolution, closing=False, slab=False, extrusion=False, max_offset=0.05, 
+    def __init__(self, atomgroup, resolution, closing=False, slab=False, morph="", max_offset=0.05, 
                  verbose=False, write_structures=False, no_mapping=False, return_counts=True, 
                  betafactors=True):
         """
@@ -24,10 +24,11 @@ class Containment():
         using a resolution of 0.5 nm. For a resolution of 1 nm it
         is not required and disadvised.
 
-        Extrusion smears the generated voxel mask after closing in all axes. 
-        This is useful for point clouds generated from meshes, since these 
-        point clouds are basically 2D which can cause unexpected behavior. 
-        Giving these point clouds some thickness remedies this.
+        Morph can be used to apply additional morphological operations
+        on the voxel mask. It is a string containing 'd' and 'e' characters,
+        where 'd' is dilation and 'e' is erosion. The operations are
+        applied in the order they appear in the string. For example,
+        morph='de' will first dilate the voxel mask, and then erode it.
 
         Slab can be set to 'True' to process slices of a larger whole,
         this will disable any treatment of PBC.
@@ -99,25 +100,12 @@ class Containment():
             grid, voxel2atom  = create_voxels(
                 self.atomgroup, self.resolution, max_offset= self._max_offset, return_mapping=False)
         
+        # This is a legacy method and will be removed in future versions.
         if self.closing:
-            grid = close_voxels(grid)
+            grid = morph_voxels(grid, 'de')
 
-        if self.extrusion:
-            # Extrude in all axes separately (is this actually guaranteed to be enough if you do not apply them serially?)
-            raw_grid = grid.copy()
-            grid = np.roll(raw_grid, shift=1, axis=0) | grid
-            grid = np.roll(raw_grid, shift=1, axis=1) | grid
-            grid = np.roll(raw_grid, shift=1, axis=2) | grid           
-            
-            # Full extrusion in XYZ
-            #grid = np.roll(grid, shift=1, axis=0) | grid
-            #grid = np.roll(grid, shift=1, axis=1) | grid
-            #grid = np.roll(grid, shift=1, axis=2) | grid
-
-            # Extrude only in XY (theoretically this enough and more conservative, but less symmetric?)
-            #raw_grid = grid.copy()
-            #grid = np.roll(raw_grid, shift=1, axis=0) | grid
-            #grid = np.roll(grid, shift=1, axis=1) | grid
+        if self.morph:
+            grid = morph_voxels(grid, self.morph)
         return grid, voxel2atom
 
     def get_atomgroup_from_voxel_positions(self, voxels):

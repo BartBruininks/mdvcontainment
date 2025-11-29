@@ -239,9 +239,9 @@ def voxels2atomgroup(voxels, mapping, atomgroup):
     
     return atomgroup.universe.atoms[selected_atom_indices]
 
-def close_voxels(voxels):
+def dilate_voxels(voxels):
     """
-    Dilates and erodes once in place (closing).
+    Dilates in place.
 
     Parameters
     ----------
@@ -249,13 +249,62 @@ def close_voxels(voxels):
 
     Returns
     -------
-    voxels: boolean 3D array of voxel occupancy after closure
+    voxels: boolean 3D array of voxel occupancy after dilation
     """
     nbox = np.diag(voxels.shape)
     # Possible dilation and erosion to remove small holes for CG data.
     voxels = linear_blur(voxels, nbox, 1)
+    voxels = voxels.astype(bool)
+    return voxels
+
+def erode_voxels(voxels):
+    """
+    Erodes in place.
+
+    Parameters
+    ----------
+    voxels: boolean 3D array of voxel occupancy
+
+    Returns
+    -------
+    voxels: boolean 3D array of voxel occupancy after erosion
+    """
+    nbox = np.diag(voxels.shape)
+    # Possible dilation and erosion to remove small holes for CG data.
     voxels = linear_blur(~voxels, nbox, 1)
     voxels = ~voxels
     return voxels
+
+def morph_voxels(voxels, morph_str='de'):
+    """
+    Morphs the voxels by sequentially applying dilations and or erosions
+    as specified by the morph string.
+
+    Example (closing): 'de' means dilation followed by erosion.
+    Example (opening): 'ed' means erosion followed by dilation.
+
+    Parameters
+    ----------
+    voxels: boolean 3D array of voxel occupancy
+    morph_str: str
+        String specifying the morph operations to apply.
+        'd' for dilation, 'e' for erosion.
+   
+    Returns
+    -------
+    voxels: boolean 3D array of voxel occupancy after morphing
+    """
+    for operation in morph_str:
+        if operation == 'd':
+            voxels = dilate_voxels(voxels)
+        elif operation == 'e':
+            voxels = erode_voxels(voxels)
+        else:
+            raise ValueError(f"Unknown morph operation '{operation}' in morph string '{morph_str}'. Use 'd' for dilation and 'e' for erosion.") 
+    return voxels
+
+def close_voxels(voxels):
+    """Closes the voxels by performing a dilation followed by an erosion."""
+    return morph_voxels(voxels, morph_str='de')
 
 
