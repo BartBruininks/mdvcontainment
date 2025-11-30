@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/354b70dc-9069-493f-8c5b-fc756b7d14d0" width="60%">
+  <img src="https://github.com/user-attachments/assets/354b70dc-9069-493f-8c5b-fc756b7d14d0" width="60%"/>
 </p>
 
 # MDVContainment v1.1.0
@@ -119,6 +119,24 @@ Containment Graph with 3 components (component: nm^3: rank):
 ```
 </details>
 
+<details open>
+<summary>Input</summary>
+<br>
+	
+```
+# Plot the compositions
+composition, fig, axs = cl.analyze_composition(containment, mode='names') # or 'resnames' / 'molar'
+```
+</details>
+
+<details open>
+<summary>Output</summary>
+<br>
+	
+<p align="center">
+  <img width="713" height="809" alt="image" src="https://github.com/user-attachments/assets/d221d70b-7626-4be8-b872-a44e9e3bcc04" width="60%">
+</p>
+</details>
 
 # Extensive examples
 For worked examples in jupyter notebooks, take a look at the [examples/notebooks](https://github.com/BartBruininks/mdvcontainment/tree/main/examples/notebooks) folder. Some example structure files are added under [examples/structures](https://github.com/BartBruininks/mdvcontainment/tree/main/examples/structures).
