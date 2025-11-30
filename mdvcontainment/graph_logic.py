@@ -258,7 +258,7 @@ def format_dag(G, node, ranks, counts, prefix='', is_last=True):
     connector = '└── ' if is_last else '├── '
     
     if counts is not False:
-        result = f"{prefix}{connector}[{node}: {counts[node]}: {ranks[node]}]\n"
+        result = f"{prefix}{connector}[{node}: {int(counts[node])}: {ranks[node]}]\n"
     else:
         result = f"{prefix}{connector}[{node}: {ranks[node]}]\n"
     
@@ -268,7 +268,7 @@ def format_dag(G, node, ranks, counts, prefix='', is_last=True):
         result += format_dag(G, child, ranks, counts, new_prefix, i == len(children) - 1)
     return result
 
-def format_dag_structure(G, ranks, counts=False):
+def format_dag_structure(G, ranks, counts=False, unit='nvoxels'):
     """
     Format the entire DAG structure as a string.
     
@@ -276,12 +276,13 @@ def format_dag_structure(G, ranks, counts=False):
         G: NetworkX graph
         ranks: Dictionary of ranks per node
         counts: Dictionary of counts per node, or False to omit counts
+        unit: Unit string for counts display
     
     Returns:
         String representation of the entire DAG
     """
     if counts is not False:
-        result = f'Containment Graph with {len(G.nodes())} components (component: nvoxels: rank):\n'
+        result = f'Containment Graph with {len(G.nodes())} components (component: {unit}: rank):\n'
     else:
         result = f'Containment Graph with {len(G.nodes())} components (component: rank):\n'
     

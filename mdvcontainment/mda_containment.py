@@ -5,6 +5,7 @@ import MDAnalysis as mda
 
 from .atomgroup_to_voxels import create_voxels, voxels2atomgroup, morph_voxels
 from .containment_main import VoxelContainment
+from .graph_logic import format_dag_structure
 
 
 class ContainmentBase(ABC):
@@ -18,7 +19,11 @@ class ContainmentBase(ABC):
     """
     
     def __str__(self):
-        return str(self.voxel_containment)
+        return format_dag_structure(
+            self.voxel_containment.containment_graph, 
+            self.voxel_containment.component_ranks, 
+            self.voxel_volumes, 
+            unit='nm^3')
     
     # Properties - all delegate to _base for data access
 
@@ -32,7 +37,19 @@ class ContainmentBase(ABC):
         """Volume of a single voxel in nm^3."""
         total_volume = np.prod(self.universe.dimensions[:3])
         total_voxels = np.prod(self.boolean_grid.shape)
-        return (total_volume / total_voxels)
+        return (total_volume / total_voxels) / 1000  # Convert A^3 to nm^3
+    
+    @property
+    def voxel_volumes(self):
+        """
+        Voxel volumes dict (nm^3) for each node in the current containment graph.
+        """
+        if not self._base.voxel_containment._voxel_counts:
+            return False
+        
+        voxel_counts = self.voxel_containment.voxel_counts
+        volumes = {key: value*self._base.voxel_volume for key, value in voxel_counts.items()}
+        return volumes
     
     @property
     def atomgroup(self):

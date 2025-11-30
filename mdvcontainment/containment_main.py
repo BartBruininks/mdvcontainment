@@ -145,7 +145,7 @@ class VoxelContainmentBase:
     """
     
     def __str__(self):
-        return format_dag_structure(self.containment_graph, self.component_ranks, self.voxel_counts)
+        return format_dag_structure(self.containment_graph, self.component_ranks, self.voxel_counts, unit='nvoxels')
     
     # Properties - delegate to _base or compute from current graph state
     
