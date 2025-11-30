@@ -21,6 +21,11 @@ class ContainmentBase(ABC):
         return str(self.voxel_containment)
     
     # Properties - all delegate to _base for data access
+
+    @property
+    def nodes(self):
+        """Containment nodes."""
+        return self.voxel_containment.nodes
     
     @property
     def atomgroup(self):
