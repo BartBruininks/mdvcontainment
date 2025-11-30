@@ -2,7 +2,7 @@
   <img src="https://github.com/user-attachments/assets/354b70dc-9069-493f-8c5b-fc756b7d14d0" width="60%">
 </p>
 
-# MDVContainment v1.0.0
+# MDVContainment v1.1.0
 Robust and fast containment charaterization for (periodic) point clouds and voxel masks for binary density labeling.
 
 **M**olecular **D**ynamics **V**oxel **Containment** yields a robust characterization of the inside and outside hierarchy for point clouds in periodic spaces of dimensionality three or lower (e.g. R^3/Z^3).
