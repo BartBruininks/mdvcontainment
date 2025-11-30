@@ -11,3 +11,4 @@ dist
 examples/notebooks/*.pdb
 examples/notebooks/*.gro
 examples/structures/large
+examples/notebooks/compositions.png
