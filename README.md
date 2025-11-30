@@ -57,7 +57,7 @@ MDVContainment has been tested to work with python >= 3.12.
 ## Using pypi
 Install v1.0.0 in the current python environment:
 ```console
-pip install mdvcontainment==v1.0.0
+pip install mdvcontainment==v1.1.0
 ```
 
 ## Using git
