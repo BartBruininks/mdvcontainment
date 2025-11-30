@@ -28,6 +28,13 @@ class ContainmentBase(ABC):
         return self.voxel_containment.nodes
     
     @property
+    def voxel_volume(self):
+        """Volume of a single voxel in nm^3."""
+        total_volume = np.prod(self.universe.dimensions[:3])
+        total_voxels = np.prod(self.boolean_grid.shape)
+        return (total_volume / total_voxels)
+    
+    @property
     def atomgroup(self):
         """Reference to the original atomgroup."""
         return self._base._atomgroup
