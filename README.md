@@ -88,6 +88,7 @@ pip install .
 # Import the required libraries
 import MDAnalysis as mda
 from mdvcontainment import Containment
+import mdvcontainment.composition_logic as cl
 
 # Import the structure file
 path = 'your_structure.pdb' # Or any MDA supported structures file
