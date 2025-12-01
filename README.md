@@ -93,7 +93,7 @@ import mdvcontainment.composition_logic as cl
 # Import the structure file
 path = 'your_structure.pdb' # Or any MDA supported structures file
 universe = mda.Universe(path)
-selection_string = 'not resname W WF ION' # Useful for CG Martini
+selection_string = 'name [CD][234][AB]' # Useful for CG Martini
 selection = universe.select_atoms(selection_string)
 
 # Run the containment analysis
