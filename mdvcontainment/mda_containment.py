@@ -117,6 +117,25 @@ class ContainmentBase(ABC):
             )
         return voxels2atomgroup(voxels, self.voxel2atom, self.atomgroup)
     
+    def _validate_nodes(self, nodes):
+        """
+        Validate nodes for the current containment/view.
+        
+        Override in subclasses if custom validation is needed.
+        Default behavior: validate against current graph.
+        
+        Parameters
+        ----------
+        nodes : list
+            Node IDs to validate.
+        
+        Returns
+        -------
+        list
+            Valid node IDs.
+        """
+        return self.voxel_containment._validate_nodes(nodes)
+    
     def get_atomgroup_from_nodes(self, nodes, containment=False):
         """
         Returns an atomgroup for the specified containment nodes.
@@ -125,6 +144,8 @@ class ContainmentBase(ABC):
         ----------
         nodes: list of int
             The containment node ids to extract atoms for.
+            For Containment: Original node IDs.
+            For ContainmentView: View node IDs (from self.nodes).
         containment: bool
             If True, retrieves all inner compartments as well. 
 
@@ -140,66 +161,20 @@ class ContainmentBase(ABC):
                 "for it does not create breadcrumbs to work its way back to the atomgroup."
             )
         
+        # Validate nodes (delegates to subclass if needed)
+        nodes = self._validate_nodes(nodes)
+        
+        if not nodes:
+            # Return empty atomgroup if no valid nodes
+            return self.universe.atoms[[]]
+        
         # Retrieves all inner compartments as well.
         if containment:
             nodes = self.voxel_containment.get_downstream_nodes(nodes)
         
-        # TODO: Proper benchmarking of both methods, for now it seems like needless complexity.
-        ## Uses the precalculated components per atom index in the tempfactors.
-        #if self._base._betafactors:
-        #    mask = np.isin(self.universe.atoms.tempfactors, nodes)
-        #    atomgroup = self.universe.atoms[mask]
-        ## Fallback to using the voxel mapping if the betafactors
-        ## have not been set for performance reasons. This is useful
-        ## when one only wants to extract/interact with a small part
-        ## of the universe.
-        #else:
-
         voxel_positions = self.voxel_containment.get_voxel_positions(nodes)
         atomgroup = self.get_atomgroup_from_voxel_positions(voxel_positions)
         return atomgroup
-    
-    def node_view(self, keep_nodes=None, min_size=0):
-        """
-        Create a view where only keep_nodes are visible.
-        
-        Nodes not in keep_nodes are merged upstream to their nearest kept ancestor.
-        This creates a ContainmentView that shares the underlying data (voxel grids,
-        atom mappings) with the base Containment for memory efficiency.
-        
-        Parameters
-        ----------
-        keep_nodes : list
-            Nodes to keep in the view. Other nodes are merged upstream.
-        min_size : int
-            Minimum size (in voxels) for a node plus its downstream nodes to be kept.
-        
-        Returns
-        -------
-        ContainmentView
-            A view with the same API but merged nodes.
-        
-        Examples
-        --------
-        >>> containment = Containment(atomgroup, resolution=0.5)
-        >>> # Remove small compartments
-        >>> view = containment.node_view([1, 3, 5, 7])
-        >>> 
-        >>> # Work with the simplified structure
-        >>> atoms = view.get_atomgroup_from_nodes([1])
-        >>> print(view)  # Shows merged structure
-        >>> 
-        >>> # Original containment is unchanged
-        >>> print(containment)  # Shows full structure
-        """
-        if keep_nodes is None:
-            keep_nodes = self.voxel_containment.nodes
-
-        # Filter nodes on size if a min_size is provided
-        if min_size > 0:
-            keep_nodes = self.voxel_containment.filter_nodes_on_size(min_size)
-        # Always create view from the original base, not from intermediate views
-        return ContainmentView(self._base, keep_nodes)
     
     def set_betafactors(self):
         """
@@ -243,6 +218,51 @@ class ContainmentBase(ABC):
                 print('Writing VIEW component ids in the tempfactors of universe.')
             else:
                 print('Writing component ids in the tempfactors of universe.')
+
+    def node_view(self, keep_nodes=None, min_size=0):
+        """
+        Create a view where only keep_nodes are visible.
+        
+        Nodes not in keep_nodes are merged upstream to their nearest kept ancestor.
+        This creates a ContainmentView that shares the underlying data (voxel grids,
+        atom mappings) with the base Containment for memory efficiency.
+        
+        Parameters
+        ----------
+        keep_nodes : list
+            Nodes to keep in the view. Other nodes are merged upstream.
+        min_size : int
+            Minimum size (in voxels) for a node plus its downstream nodes to be kept.
+        
+        Returns
+        -------
+        ContainmentView
+            A view with the same API but merged nodes.
+        
+        Examples
+        --------
+        >>> containment = Containment(atomgroup, resolution=0.5)
+        >>> # Remove small compartments
+        >>> view = containment.node_view([1, 3, 5, 7])
+        >>> 
+        >>> # Work with the simplified structure
+        >>> atoms = view.get_atomgroup_from_nodes([1])
+        >>> print(view)  # Shows merged structure
+        >>> 
+        >>> # Original containment is unchanged
+        >>> print(containment)  # Shows full structure
+        """
+        if keep_nodes is None:
+            keep_nodes = self.voxel_containment.nodes
+        else:
+            # Validate that keep_nodes exist in THIS view
+            keep_nodes = self.voxel_containment._validate_nodes(keep_nodes)
+
+        # Filter nodes on size if a min_size is provided
+        if min_size > 0:
+            keep_nodes = self.voxel_containment.filter_nodes_on_size(min_size)
+        # Always create view from the original base, not from intermediate views
+        return ContainmentView(self._base, keep_nodes)
 
 
 class Containment(ContainmentBase):
@@ -378,38 +398,49 @@ class Containment(ContainmentBase):
         if self._morph:
             grid = morph_voxels(grid, self._morph)
         return grid, voxel2atom
-
-
+        """
+        Convenience method to translate original node IDs to view node IDs.
+        
+        Useful when you have original node IDs and want to work with this view.
+        
+        Parameters
+        ----------
+        original_nodes : list
+            Original node IDs from base containment.
+        
+        Returns
+        -------
+        list
+            View node IDs (duplicates removed, None values filtered).
+        
+        Examples
+        --------
+        >>> # Original: A -> B -> C
+        >>> view = containment.node_view([A, C])
+        >>> 
+        >>> # Translate original nodes to view nodes
+        >>> view_nodes = view.translate_from_original([A, B, C])
+        >>> # Returns [A, C] because B merged into A
+        >>> 
+        >>> atoms = view.get_atomgroup_from_nodes(view_nodes)
+        """
+        view_nodes = [self.get_view_node(n) for n in original_nodes]
+        # Filter None values and remove duplicates
+        return list(dict.fromkeys([n for n in view_nodes if n is not None]))
+    
 class ContainmentView(ContainmentBase):
     """
-    A view on a Containment that merges unspecified nodes with their parents.
+    A view on a Containment with strict hierarchical subsetting.
     
-    This provides the same API as Containment but operates on a view of the
-    underlying VoxelContainment. The voxel2atom mapping and atomgroup references
-    are shared with the base Containment for memory efficiency.
-    
-    Parameters
-    ----------
-    base_containment : Containment
-        The base Containment object to create a view on.
-    keep_nodes : list or set
-        Nodes to keep visible in the view. Other nodes are merged upstream
-        to their nearest kept ancestor. If no ancestor is kept, the node is dropped.
-    
-    Examples
-    --------
-    >>> containment = Containment(atomgroup, resolution=0.5)
-    >>> # Remove small compartments (nodes B, D, E)
-    >>> view = containment.node_view([A, C, F])
-    >>> # Now can work with simplified structure
-    >>> atoms = view.get_atomgroup_from_nodes([A])  # Includes merged nodes
+    Node IDs in a view refer to THAT VIEW's namespace only.
+    Views can create sub-views, forming a hierarchy.
     """
     
     def __init__(self, base_containment, keep_nodes):
         # Store reference to the base Containment (the data owner)
         self._base = base_containment._base
         
-        # Create the VoxelContainment view - this does the heavy lifting
+        # Create the VoxelContainment view
         self.voxel_containment = self._base.voxel_containment.node_view(keep_nodes)
     
     def get_original_nodes(self, view_node):
@@ -419,7 +450,7 @@ class ContainmentView(ContainmentBase):
         Parameters
         ----------
         view_node : int
-            A node ID in the view.
+            A node ID in THIS view (not original node ID).
         
         Returns
         -------
@@ -443,3 +474,59 @@ class ContainmentView(ContainmentBase):
             The view node ID, or None if the original node was dropped.
         """
         return self.voxel_containment.get_view_node(original_node)
+    
+    def node_view(self, keep_nodes=None, min_size=0):
+        """
+        Create a sub-view from THIS view.
+        
+        Parameters
+        ----------
+        keep_nodes : list, optional
+            Nodes to keep (must be from THIS view's nodes).
+        min_size : int, optional
+            Minimum size for nodes to keep.
+        
+        Returns
+        -------
+        ContainmentView
+            A sub-view restricted to specified nodes.
+        """
+        if keep_nodes is None:
+            keep_nodes = self.voxel_containment.nodes
+        else:
+            # Validate that keep_nodes exist in THIS view
+            keep_nodes = self.voxel_containment._validate_nodes(keep_nodes)
+        
+        # Filter on size if needed
+        if min_size > 0:
+            size_filtered = self.voxel_containment.filter_nodes_on_size(min_size)
+            keep_nodes = list(set(keep_nodes) & set(size_filtered))
+        
+        if not keep_nodes:
+            raise ValueError("No valid nodes to keep in sub-view")
+        
+        # Map view nodes back to original nodes
+        original_nodes = []
+        for view_node in keep_nodes:
+            original_nodes.extend(self.get_original_nodes(view_node))
+        
+        # Create new view from base (maintains single source of truth)
+        return ContainmentView(self._base, list(set(original_nodes)))
+    
+    def translate_from_original(self, original_nodes):
+        """
+        Convenience method to translate original node IDs to view node IDs.
+        
+        Parameters
+        ----------
+        original_nodes : list
+            Original node IDs from base containment.
+        
+        Returns
+        -------
+        list
+            View node IDs (duplicates removed, None values filtered).
+        """
+        view_nodes = [self.get_view_node(n) for n in original_nodes]
+        # Filter None values and remove duplicates
+        return list(dict.fromkeys([n for n in view_nodes if n is not None]))

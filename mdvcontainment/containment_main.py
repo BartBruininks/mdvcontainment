@@ -213,6 +213,28 @@ class VoxelContainmentBase:
         return [n for n, d in self.containment_graph.out_degree() if d == 0]
     
     # Helper method for node resolution (override in views)
+
+    def _validate_nodes(self, nodes):
+        """
+        Validate that nodes exist in the current graph.
+        
+        Parameters
+        ----------
+        nodes : list
+            Node IDs to validate.
+        
+        Returns
+        -------
+        list
+            Valid node IDs (filters out invalid ones with warning).
+        """
+        valid_nodes = [n for n in nodes if n in self.containment_graph]
+        
+        invalid = set(nodes) - set(valid_nodes)
+        if invalid:
+            print(f"Warning: Nodes {invalid} not found in current graph and will be ignored")
+        
+        return valid_nodes
     
     def _resolve_nodes_to_original(self, nodes):
         """
@@ -504,32 +526,13 @@ class VoxelContainment(VoxelContainmentBase):
 
 class VoxelContainmentView(VoxelContainmentBase):
     """
-    A view on a VoxelContainment that merges specified nodes with their parents.
-    Nodes not in keep_nodes are merged upstream, maintaining the DAG structure.
+    A view that can create sub-views, maintaining strict hierarchy.
     
-    This view provides the same API as VoxelContainment but with lazy remapping
-    of nodes. Memory overhead is minimal as the underlying components_grid is
-    shared with the base containment.
-    
-    Parameters
-    ----------
-    base_containment : VoxelContainment
-        The base containment object to create a view on.
-    keep_nodes : list or set
-        Nodes to keep visible in the view. Other nodes are merged upstream
-        to their nearest kept ancestor. If a removed node has no kept ancestor,
-        it is dropped entirely.
-    
-    Examples
-    --------
-    >>> # Original: A -> B -> C, where B is small
-    >>> containment = VoxelContainment(grid)
-    >>> # Create view without B (merges B into A)
-    >>> view = containment.node_view([A, C])
-    >>> # Now A contains all of B's voxels
-    >>> view.containment_graph.edges()  # [(A, C)]
+    Each view knows:
+    - Which nodes are visible (self._keep_nodes)
+    - How to map to original base (self._node_map)
+    - How to create further restricted sub-views
     """
-    
     def __init__(self, base_containment, keep_nodes):
         # Store reference to base (handles nested views automatically)
         self._base = base_containment._base
@@ -538,15 +541,78 @@ class VoxelContainmentView(VoxelContainmentBase):
         # Build the remapping once at construction
         self._node_map = self._build_node_map()
         self._reverse_node_map = self._build_reverse_node_map()
+        
+        # Rebuild the graph, these could maybe not be copies but they tend to be small
         self._view_graph = self._build_view_graph()
+        self._view_component_contact_graph = self._build_view_contact_graph()
+        self._view_nonp_label_contact_graph = self._build_view_nonp_contact_graph()
         
         # Initialize inverted graph flag
         self._inv_containment_graph = None
-    
+
     @property
     def containment_graph(self):
         """The view's containment graph with merged nodes."""
         return self._view_graph
+    
+    @property
+    def component_contact_graph(self):
+        """Contact graph with merged nodes."""
+        return self._view_component_contact_graph
+    
+    @property
+    def nonp_label_contact_graph(self):
+        """Non-periodic label contact graph from base containment."""
+        return self._view_nonp_label_contact_graph   
+
+    def _build_view_contact_graph(self):
+        """
+        Build the component contact graph for the view with remapped node IDs.
+        
+        Merges contacts: if original nodes A and B both map to view node X,
+        and they had contacts to C (which maps to Y), then X has contact to Y.
+        
+        Returns
+        -------
+        networkx.Graph
+            Contact graph with view node IDs.
+        """
+        view_contact_graph = nx.Graph()
+        view_contact_graph.add_nodes_from(self._keep_nodes)
+        
+        # Iterate over all edges in the original contact graph
+        for u, v in self._base.component_contact_graph.edges():
+            mapped_u = self._node_map.get(u)
+            mapped_v = self._node_map.get(v)
+            
+            # Only add edge if both nodes are kept and they're different
+            if mapped_u and mapped_v and mapped_u != mapped_v:
+                view_contact_graph.add_edge(mapped_u, mapped_v)
+        
+        return view_contact_graph
+
+    def _build_view_nonp_contact_graph(self):
+        """
+        Build the non-periodic label contact graph for the view with remapped node IDs.
+        
+        Returns
+        -------
+        networkx.Graph
+            Non-periodic contact graph with view node IDs.
+        """
+        view_nonp_graph = nx.Graph()
+        view_nonp_graph.add_nodes_from(self._keep_nodes)
+        
+        # Iterate over all edges in the original non-periodic contact graph
+        for u, v in self._base.nonp_label_contact_graph.edges():
+            mapped_u = self._node_map.get(u)
+            mapped_v = self._node_map.get(v)
+            
+            # Only add edge if both nodes are kept and they're different
+            if mapped_u and mapped_v and mapped_u != mapped_v:
+                view_nonp_graph.add_edge(mapped_u, mapped_v)
+        
+        return view_nonp_graph 
     
     def _resolve_nodes_to_original(self, nodes):
         """
@@ -663,3 +729,52 @@ class VoxelContainmentView(VoxelContainmentBase):
             The view node ID, or None if the original node was dropped.
         """
         return self._node_map.get(original_node)
+    
+    def node_view(self, keep_nodes=None, min_size=0):
+        """
+        Create a sub-view from THIS view.
+        
+        The sub-view's nodes must be a subset of this view's nodes.
+        This creates view hierarchy: base -> view1 -> view2
+        
+        Parameters
+        ----------
+        keep_nodes : list, optional
+            Nodes to keep (must be from THIS view's nodes).
+            If None, returns equivalent view.
+        min_size : int, optional
+            Minimum size for nodes to keep.
+        
+        Returns
+        -------
+        VoxelContainmentView
+            A sub-view restricted to specified nodes.
+        
+        Examples
+        --------
+        >>> # Base: A -> B -> C -> D
+        >>> view1 = base.node_view([A, B, D])  # View1: A -> B, D
+        >>> view2 = view1.node_view([A, D])     # View2: A, D (subset of view1)
+        >>> view2.node_view([B])                # Error! B not in view2
+        """
+        if keep_nodes is None:
+            keep_nodes = self.nodes
+        
+        # Validate that keep_nodes are in THIS view
+        keep_nodes = self.validate_nodes(keep_nodes)
+        
+        # Filter on size if needed
+        if min_size > 0:
+            size_filtered = self.filter_nodes_on_size(min_size)
+            keep_nodes = list(set(keep_nodes) & set(size_filtered))
+        
+        if not keep_nodes:
+            raise ValueError("No valid nodes to keep in sub-view")
+        
+        # Map view nodes back to original nodes for creating the sub-view
+        original_nodes = []
+        for view_node in keep_nodes:
+            original_nodes.extend(self.get_original_nodes(view_node))
+        
+        # Create sub-view from base (maintains original node space)
+        return VoxelContainmentView(self._base, list(set(original_nodes)))
