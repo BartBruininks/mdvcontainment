@@ -8,6 +8,7 @@ build
 dist
 *.c
 *.so
+temp
 examples/notebooks/*.pdb
 examples/notebooks/*.gro
 examples/structures/large
