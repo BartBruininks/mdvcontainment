@@ -5,6 +5,7 @@ mdvcontainment/__pycache__/*
 *mdvcontainment.egg-info
 *cpython
 build
+temp
 dist
 *.c
 *.so
