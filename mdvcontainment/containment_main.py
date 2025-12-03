@@ -4,137 +4,11 @@ import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 
-# Python
-from .rank_logic import get_ranks, get_is_contained, get_nonp_is_contained
-from .graph_logic import draw_graph, create_contact_graph, get_mapping_dicts, get_subgraphs, create_component_contact_graph, create_containment_graph, format_dag_structure
-from .voxels_to_gro import voxels_to_gro
-from .label import label_3d_grid, create_components_grid
-
-# Cython
-from .find_label_contacts import find_label_contacts
-from .find_bridges import find_bridges 
+# Python Module
+from .graph_logic import format_dag_structure
 
 
-def calc_containment_graph(boolean_grid, verbose=False, write_structures=False, draw_graphs=False, slab=False):
-    """
-    Creates the containment graph nx.MultiDiGraph(), taking right angled PBC into account.
-    
-    Parameters
-    ----------
-    boolean_grid: bool 3D array
-        Boolean 3D array of voxel occupancy.
-    verbose: bool
-        Whether to print developer information.
-    write_structures: bool
-        Whether to write gro files of the input, labeled and components grids.
-    draw_graphs: bool
-        Whether to draw the contact graphs.
-    slab: bool
-        Whether to treat the data as a slab (non periodic in one dimension).
-
-    Returns
-    -------
-    containment_graph: nx.DiGraph
-        The containment graph with directed edges from parent to child.
-    component_contact_graph: nx.Graph
-        The undirected component contact graph.
-    components_grid: int32 3D array
-        The components grid where each voxel has a component integer.
-    component_ranks: dict
-        Dict of component:int -> rank:int
-    contact_graph: nx.Graph
-        The undirected label contact graph. 
-    """
-    # Return the basic counts of Trues and Falses in the input grid if verbose.
-    if verbose:
-        counts_boolean_grid = dict(zip(*np.unique(boolean_grid, return_counts=True)))
-        print(f'Value prevalence in boolean_grid: {counts_boolean_grid}')\
-
-    # Finding all unique label ids in the labeled grid.
-    nonp_labeled_grid = label_3d_grid(boolean_grid)
-    nonp_unique_labels = np.unique(nonp_labeled_grid)
-    if verbose:
-        print(f'Unique labels in labeled_grid: {nonp_unique_labels}')
-
-    # Write the input and labeled structures
-    if write_structures:
-        voxels_to_gro('input.gro', boolean_grid)
-        voxels_to_gro('nonp_labels.gro', nonp_labeled_grid)
-
-    # Find all non periodic label contacts
-    nonp_contacts = find_label_contacts(nonp_labeled_grid)
-
-    if not slab:
-        # Find all bridges (contacts between labels over PBC).
-        bridges = find_bridges(nonp_labeled_grid)
-
-    # Generate the label contact graph with bridge annotation.
-    if not slab:
-        contact_graph = create_contact_graph(nonp_contacts, nonp_unique_labels, bridges)
-    else:
-        contact_graph = create_contact_graph(nonp_contacts, nonp_unique_labels)
-    if draw_graphs:
-        print('=== NON PERIODIC LABEL CONTACT GRAPH ===')
-        draw_graph(contact_graph)
-
-    if not slab:
-        # Get all the mappings between labels and components plus their subgraphs
-        positive_subgraphs, negative_subgraphs = get_subgraphs(nonp_unique_labels, contact_graph)
-        component2labels, labels2component, label2component = get_mapping_dicts(positive_subgraphs, negative_subgraphs)
-        if verbose:
-            print(f'component2labels {component2labels}')
-            print(f'labels2component {labels2component}')
-            print(f'label2component {label2component}')
-
-    # Relabel the labeled_grid to take pbc into account.
-    if not slab:
-        components_grid = create_components_grid(nonp_labeled_grid, component2labels)
-    else:
-        components_grid = nonp_labeled_grid
-    # Write the components structure file
-    if write_structures:
-        voxels_to_gro('components.gro', components_grid)
-    
-    # Calculate the ranks for the components and complements.
-    if not slab:
-        component_ranks, complement_ranks = get_ranks(positive_subgraphs, negative_subgraphs, nonp_unique_labels, component2labels, labels2component, contact_graph)
-        if verbose:
-            print(f'All rank of components: {component_ranks}')
-            print(f'Complement ranks: {complement_ranks}')
-        
-        # Determine weather a component is contained or not, based on the fact
-        #  that a component is contained if its complement is of higher rank.
-        is_contained_dict = get_is_contained(component_ranks, complement_ranks)
-        if verbose:
-            print(f'Containment status: {is_contained_dict}')
-    else:
-        is_contained_dict, component_ranks = get_nonp_is_contained(nonp_labeled_grid, nonp_unique_labels, write_structures)
-        
-    if not slab:
-        # Create the component level contact graph. Using an iterative approach we 
-        #  trickly down the containment arrow started by a non-contained component
-        #  being in contact with a contained component, therefore containing it. 
-        #  Since every contained component can only have on parent, this means it
-        #  must be the parent of all its other contacts in the component contact
-        #  graph. This iterates until all nodes have been processed.
-        component_contact_graph = create_component_contact_graph(
-            component2labels, label2component, contact_graph)
-        # Draw the component contacts graph
-        if draw_graphs:
-            print('=== COMPONENT CONTACTS GRAPH ===')
-            draw_graph(component_contact_graph)
-    else:
-        component_contact_graph = nx.Graph(contact_graph)
-    
-    # Finally create the containment graph by directing the edges in the 
-    #  component contact graph (also breaking edges if they do not represent,
-    #  a containment hierarchy).
-    unique_components = np.unique(components_grid)
-    containment_graph = create_containment_graph(is_contained_dict, unique_components, component_contact_graph)
-    return containment_graph, component_contact_graph, components_grid, component_ranks, contact_graph
-
-
-class VoxelContainmentBase:
+class VoxelContainmentBase(ABC):
     """
     Abstract base class for VoxelContainment and VoxelContainmentView.
     
@@ -160,19 +34,24 @@ class VoxelContainmentBase:
         return self._base._slab
     
     @property
-    def component_contact_graph(self):
-        """Contact graph from base containment."""
-        return self._base._component_contact_graph
-    
-    @property
     def components_grid(self):
         """Reference to the base components grid."""
         return self._base._components_grid
     
     @property
+    def component_contact_graph(self):
+        """Contact graph from base containment."""
+        return self._component_contact_graph
+    
+    @property
     def nonp_label_contact_graph(self):
         """Non-periodic label contact graph from base containment."""
-        return self._base._nonp_label_contact_graph
+        return self._nonp_label_contact_graph
+    
+    @property
+    def containment_graph(self):
+        """Return the containment graph computed during construction."""
+        return self._containment_graph
     
     @property
     def component_ranks(self):
@@ -371,8 +250,6 @@ class VoxelContainmentBase:
     
     def draw(self, nodes=False):
         """Draw the containment graph."""
-        import matplotlib.pyplot as plt
-        
         if nodes is False:
             nx.draw_networkx(self.containment_graph)
         else:
@@ -418,11 +295,14 @@ class VoxelContainmentBase:
             A view with the same API but merged nodes.
         """
         if keep_nodes is None:
-            keep_nodes = self.voxel_containment.nodes
+            keep_nodes = self.nodes
+        else:
+            unknown_nodes = set(keep_nodes) - set(self.nodes)
+            assert len(unknown_nodes) == 0, f"Specified nodes not present in current nodes {unknown_nodes}."
 
         # Filter nodes on size if a min_size is provided
         if min_size > 0:
-            keep_nodes = self.voxel_containment.filter_nodes_on_size(min_size)
+            keep_nodes = self.filter_nodes_on_size(min_size)
         
         # Always create view from the original base
         return VoxelContainmentView(self._base, keep_nodes)
@@ -492,11 +372,6 @@ class VoxelContainment(VoxelContainmentBase):
     # Override properties to return owned data or cached values
     
     @property
-    def containment_graph(self):
-        """Return the containment graph computed during construction."""
-        return self._containment_graph
-    
-    @property
     def voxel_counts(self):
         """Return the voxel counts computed during construction."""
         return self._voxel_counts
@@ -538,15 +413,17 @@ class VoxelContainmentView(VoxelContainmentBase):
         # Build the remapping once at construction
         self._node_map = self._build_node_map()
         self._reverse_node_map = self._build_reverse_node_map()
-        self._view_graph = self._build_view_graph()
+        # For now we rebuild the graphs, I think this is often cheap enough to make this viable
+        self._component_contact_graph = self._build_view_graph(self._base.component_contact_graph)
+        self._nonp_label_contact_graph = self._build_view_graph(self._base.nonp_label_contact_graph)
+        self._containment_graph = self._build_view_graph(
+            self._base.containment_graph, 
+            directed=True, 
+            reduce_transitive=True,
+            )
         
         # Initialize inverted graph flag
         self._inv_containment_graph = None
-    
-    @property
-    def containment_graph(self):
-        """The view's containment graph with merged nodes."""
-        return self._view_graph
     
     def _resolve_nodes_to_original(self, nodes):
         """
@@ -612,23 +489,38 @@ class VoxelContainmentView(VoxelContainmentBase):
         
         return reverse_map
     
-    def _build_view_graph(self):
+    def _build_view_graph(self, source_graph, directed=False, reduce_transitive=False):
         """
-        Construct the view graph with remapped edges.
-        Edges are created between kept nodes, skipping removed intermediate nodes.
+        Build a view graph with remapped node IDs from a source graph.
+        
+        Parameters
+        ----------
+        source_graph : networkx.Graph or networkx.DiGraph
+            The original graph to build the view from.
+        directed : bool, default=False
+            Whether to create a directed graph (DiGraph) or undirected graph (Graph).
+        reduce_transitive : bool, default=False
+            Whether to apply transitive reduction (only for directed graphs).
+        
+        Returns
+        -------
+        networkx.Graph or networkx.DiGraph
+            View graph with remapped node IDs.
         """
-        view_graph = nx.DiGraph()
+        view_graph = nx.DiGraph() if directed else nx.Graph()
         view_graph.add_nodes_from(self._keep_nodes)
         
-        for u, v in self._base.containment_graph.edges():
+        # Iterate over all edges in the source graph
+        for u, v in source_graph.edges():
             mapped_u = self._node_map.get(u)
             mapped_v = self._node_map.get(v)
-            
+            # Only add edge if both nodes are kept and they're different
             if mapped_u and mapped_v and mapped_u != mapped_v:
                 view_graph.add_edge(mapped_u, mapped_v)
         
-        # Remove transitive edges to maintain minimal DAG structure
-        view_graph = nx.transitive_reduction(view_graph)
+        # Apply transitive reduction if requested (only for directed graphs)
+        if reduce_transitive and directed:
+            view_graph = nx.transitive_reduction(view_graph)
         
         return view_graph
     

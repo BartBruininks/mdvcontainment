@@ -193,7 +193,10 @@ class ContainmentBase(ABC):
         >>> print(containment)  # Shows full structure
         """
         if keep_nodes is None:
-            keep_nodes = self.voxel_containment.nodes
+            keep_nodes = self.nodes
+        else:
+            unknown_nodes = set(keep_nodes) - set(self.nodes)
+            assert len(unknown_nodes) == 0, f"Specified nodes not present in current nodes {unknown_nodes}."
 
         # Filter nodes on size if a min_size is provided
         if min_size > 0:

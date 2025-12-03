@@ -1,10 +1,11 @@
-import numpy as np
+# Python 
 from collections import Counter
 
+# Python External
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import matplotlib.colors as mcolors
-
 try:
     import ipywidgets as widgets
     from IPython.display import display
