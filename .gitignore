@@ -11,5 +11,6 @@ dist
 *.so
 examples/notebooks/*.pdb
 examples/notebooks/*.gro
+examples/notebooks/*.tga
 examples/structures/large
 examples/notebooks/compositions.png

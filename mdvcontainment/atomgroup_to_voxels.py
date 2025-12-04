@@ -1,7 +1,9 @@
+# Python External
 import numpy as np
 
-# Cython
+# Cython Module
 from .atoms_voxels_mapping import create_efficient_mapping_cy, voxels2atomgroup_cy
+
 
 def dim2lattice(x, y, z, alpha=90, beta=90, gamma=90):
     """Convert dimensions (lengths/angles) to lattice matrix.

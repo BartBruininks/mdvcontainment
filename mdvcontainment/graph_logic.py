@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # Python Module
 from .rank_logic import make_relabel_dicts, get_ranks, get_is_contained, get_nonp_is_contained
 from .voxels_to_gro import voxels_to_gro
-from .label import label_3d_grid
+from .label import label_3d_grid, create_components_grid
 
 # Cython Module
 from .find_label_contacts import find_label_contacts

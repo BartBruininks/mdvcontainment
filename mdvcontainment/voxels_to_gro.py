@@ -1,16 +1,39 @@
+# Python
 from pathlib import Path
 
-import MDAnalysis as mda
+# Python External
 import numpy as np
+import MDAnalysis as mda
 
-def voxels_to_gro(path: Path, arr, scale: float = 1.0, place_in_center: bool = True, universe = None):
-    if universe is None:
-        scale *= 10.0  # We go from Å to nm scale.
+
+def voxels_to_gro(
+    path: Path,
+    arr,
+    scale: float = 1.0,
+    place_in_center: bool = True,
+    universe=None,
+    nodes=None,
+):
+    # Optional filtering
+    if nodes is not None:
+        mask = np.isin(arr, nodes)
+        # Keep only positions + values that match
+        filtered_indices = np.array(np.where(mask)).T        # shape (M, 3)
+        filtered_values = arr[mask].ravel()
+        n_atoms = filtered_indices.shape[0]
     else:
-        scale = universe.dimensions[:3] / arr.shape
-    n_atoms = np.prod(arr.shape)
+        filtered_indices = np.array(list(np.ndindex(arr.shape)))
+        filtered_values = arr.flatten()
+        n_atoms = filtered_indices.shape[0]
 
-    # Set up our output universe.
+    # Scaling
+    if universe is None:
+        scale *= 10.0  # Å to nm
+        box_scale = scale
+    else:
+        box_scale = universe.dimensions[:3] / np.array(arr.shape)
+
+    # Build Universe
     u = mda.Universe.empty(
         n_atoms,
         n_residues=n_atoms,
@@ -19,22 +42,19 @@ def voxels_to_gro(path: Path, arr, scale: float = 1.0, place_in_center: bool = T
         trajectory=True,
     )
 
-    # Fill it up with an 3×n_atoms coordinate array.
-    indices = np.array(list(np.ndindex(arr.shape)))
-    u.atoms.positions = indices * scale
+    # Coordinates
+    u.atoms.positions = filtered_indices * box_scale
 
     if place_in_center:
-        # Place the atoms in the _middle_ of their voxel, rather than at the voxel origin.
-        u.atoms.positions += scale / 2
+        u.atoms.positions += box_scale / 2
 
-    # Derive the box size from the array shape.
-    box = np.array(arr.shape) * scale
+    # Box dimensions always represent full array volume
+    box = np.array(arr.shape) * box_scale
     u.dimensions = np.array([*box, 90, 90, 90], dtype=np.int32)
 
-    # Assign appropriate residue names. We want to distinguish between the
-    # different values we find in the array (the different compartments!).
-    names = [str(name) for name in arr.flatten()]
+    # Residue/atom names come from array values
+    names = [str(v) for v in filtered_values]
     u.add_TopologyAttr("name", names)
 
-    # Write them!
+    # Output
     u.atoms.write(path)

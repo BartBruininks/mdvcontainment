@@ -1,5 +1,7 @@
+# Python External
 import numpy as np
 from scipy.ndimage import label
+
 
 def label_3d_grid(grid):
     """Label the 3D boolean grid considering 26 neighbors connectivity."""

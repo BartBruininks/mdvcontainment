@@ -5,7 +5,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 # Python Module
-from .graph_logic import format_dag_structure
+from .graph_logic import format_dag_structure, calc_containment_graph
 
 
 class VoxelContainmentBase(ABC):

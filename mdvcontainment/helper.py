@@ -1,5 +1,6 @@
+# Python External
 import numpy as np
-import math
+
 
 def convert_bounding_boxed_universe(universe, trim=20):
     """

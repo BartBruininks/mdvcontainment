@@ -1,8 +1,11 @@
+# Python
 from abc import ABC
-import numpy as np
 
+# Python External
+import numpy as np
 import MDAnalysis as mda
 
+# Python Module
 from .atomgroup_to_voxels import create_voxels, voxels2atomgroup, morph_voxels
 from .containment_main import VoxelContainment
 from .graph_logic import format_dag_structure
