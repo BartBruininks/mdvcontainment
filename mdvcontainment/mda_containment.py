@@ -47,9 +47,6 @@ class ContainmentBase(ABC):
         """
         Voxel volumes dict (nm^3) for each node in the current containment graph.
         """
-        if not self._base.voxel_containment._voxel_counts:
-            return False
-        
         voxel_counts = self.voxel_containment.voxel_counts
         volumes = {key: value*self._base.voxel_volume for key, value in voxel_counts.items()}
         return volumes
@@ -162,13 +159,38 @@ class ContainmentBase(ABC):
         atomgroup = self.get_atomgroup_from_voxel_positions(voxel_positions)
         return atomgroup
     
+    def _filter_nodes_on_volume(self, nodes, min_size):
+        """
+        Filter nodes based on their volumes (in nm^3) -- includes their downstream nodes.
+        
+        Parameters
+        ----------
+        nodes : list
+            Nodes to include in the filtering
+        min_size : int
+            Minimum size (in voxels) for a node plus its downstream nodes to be kept.
+        
+        Returns
+        -------
+        list
+            List of nodes that meet the size requirement.
+        """
+        filtered_nodes = []
+        for node in nodes:
+            downstream = list(self.voxel_containment.get_downstream_nodes([node]))
+            voxel_count = sum([self.voxel_volumes[n] for n in downstream])
+            if voxel_count >= min_size:
+                filtered_nodes.append(int(node))
+        return filtered_nodes
+    
     def node_view(self, keep_nodes=None, min_size=0):
         """
-        Create a view where only keep_nodes are visible.
+        Create a view where only keep_nodes > min_size are exposed.
         
-        Nodes not in keep_nodes are merged upstream to their nearest kept ancestor.
-        This creates a ContainmentView that shares the underlying data (voxel grids,
-        atom mappings) with the base Containment for memory efficiency.
+        Nodes not in keep_nodes or smaller than min_size are merged upstream to 
+        their nearest kept ancestor. This creates a ContainmentView that shares 
+        the underlying data (voxel grids, atom mappings) with the base Containment 
+        for memory efficiency.
         
         Parameters
         ----------
@@ -185,8 +207,8 @@ class ContainmentBase(ABC):
         Examples
         --------
         >>> containment = Containment(atomgroup, resolution=0.5)
-        >>> # Remove small compartments
-        >>> view = containment.node_view([1, 3, 5, 7])
+        >>> # Remove small compartments and at most keep provided node list
+        >>> view = containment.node_view([1, 3, 5, 7], min_size=200)
         >>> 
         >>> # Work with the simplified structure
         >>> atoms = view.get_atomgroup_from_nodes([1])
@@ -201,9 +223,9 @@ class ContainmentBase(ABC):
             unknown_nodes = set(keep_nodes) - set(self.nodes)
             assert len(unknown_nodes) == 0, f"Specified nodes not present in current nodes {unknown_nodes}."
 
-        # Filter nodes on size if a min_size is provided
+        # Filter nodes on volume as well if a min_size is provided
         if min_size > 0:
-            keep_nodes = self.voxel_containment.filter_nodes_on_size(min_size)
+            keep_nodes = self._filter_nodes_on_volume(keep_nodes, min_size)
         # Always create view from the original base, not from intermediate views
         return ContainmentView(self._base, keep_nodes)
     
@@ -260,7 +282,7 @@ class Containment(ContainmentBase):
     """
     
     def __init__(self, atomgroup, resolution, closing=False, morph="", max_offset=0.05, 
-                 verbose=False, no_mapping=False, return_counts=True, 
+                 verbose=False, no_mapping=False, 
                  ):
         """
         Atomgroup specifies the selected atoms. All atoms in the universe
@@ -281,19 +303,17 @@ class Containment(ContainmentBase):
         on the voxel mask. It is a string containing 'd' and 'e' characters,
         where 'd' is dilation and 'e' is erosion. The operations are
         applied in the order they appear in the string. For example,
-        morph='de' will first dilate the voxel mask, and then erode it.
+        morph='de' will first dilate the voxel mask, and then erode it, 
+        which is equivalent to closing. 
 
         Max_offset can be set to 0 to allow any resolution scaling 
         artefact for voxelization.
 
-        Verbose can be used to set developer prints.
+        Verbose can be used to set progress prints.
 
         No_mapping can be used to skip the generation of the voxel2atoms mapping. Making 
-        the mapping is somewhat costly and if you already know you are interested in the voxel masks,
-        why bother making it.
-
-        Return counts is set to 'True' by default, this counts the amount of voxels per component
-        this can be useful to get an estimate for the volume of a component.
+        the mapping is somewhat costly and if you already know you are not interested in 
+        backmapping to atoms, why bother making it.
 
         All voxel logic (selecting by component etc) can be found under self.voxel_containment.
         """
@@ -305,7 +325,6 @@ class Containment(ContainmentBase):
         assert type(max_offset) in [float, int], "Max_offset must be a float or int."
         assert type(verbose) == bool, "Verbose must be a boolean."
         assert type(no_mapping) == bool, "No_mapping must be a boolean."
-        assert type(return_counts) == bool, "Return_counts must be a boolean."
 
         if closing:
             print("WARNING: The 'closing' parameter is deprecated and will be removed in future versions. Please use the 'morph' parameter with value 'de' instead.")
@@ -320,7 +339,6 @@ class Containment(ContainmentBase):
         self._max_offset = max_offset
         self._verbose = verbose
         self._no_mapping = no_mapping
-        self._return_counts = return_counts
         
         # Store universe and derived atomgroups
         self._universe = atomgroup.universe
@@ -330,13 +348,13 @@ class Containment(ContainmentBase):
         self._boolean_grid, self._voxel2atom = self._voxelize_atomgroup()
         
         # Create voxel containment
-        self.voxel_containment = VoxelContainment(
-            self._boolean_grid, 
-            verbose=self._verbose, 
-            counts=self._return_counts)
+        self.voxel_containment = VoxelContainment(self._boolean_grid, verbose=self._verbose)
         
         # CRITICAL: Set self-reference for base class properties to work
         self._base = self
+    
+    def __repr__(self):
+        return f'<Containment with {len(self.universe.atoms)} atoms in a {self.voxel_containment.grid.shape} grid with a resolution of {self.resolution} nm>'
     
     def _voxelize_atomgroup(self):
         """
@@ -394,6 +412,9 @@ class ContainmentView(ContainmentBase):
         
         # Create the VoxelContainment view - this does the heavy lifting
         self.voxel_containment = self._base.voxel_containment.node_view(keep_nodes)
+
+    def __repr__(self):
+        return f'<ContainmentView with {len(self.universe.atoms)} atoms in a {self.voxel_containment.grid.shape} grid with a resolution of {self.resolution} nm>'
     
     def get_original_nodes(self, view_node):
         """

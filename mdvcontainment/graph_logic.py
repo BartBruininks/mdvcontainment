@@ -266,18 +266,15 @@ def format_dag(G, node, ranks, counts, prefix='', is_last=True):
     """
     connector = '└── ' if is_last else '├── '
     
-    if counts is not False:
-        result = f"{prefix}{connector}[{node}: {int(counts[node])}: {ranks[node]}]\n"
-    else:
-        result = f"{prefix}{connector}[{node}: {ranks[node]}]\n"
+    result = f"{prefix}{connector}[{node}: {int(counts[node])}: {ranks[node]}]\n"
     
-    children = list(G.successors(node))
+    children = sorted(list(G.successors(node)))
     for i, child in enumerate(children):
         new_prefix = prefix + ('    ' if is_last else '│   ')
         result += format_dag(G, child, ranks, counts, new_prefix, i == len(children) - 1)
     return result
 
-def format_dag_structure(G, ranks, counts=False, unit='nvoxels'):
+def format_dag_structure(G, ranks, counts, unit='nvoxels'):
     """
     Format the entire DAG structure as a string.
     
@@ -290,12 +287,9 @@ def format_dag_structure(G, ranks, counts=False, unit='nvoxels'):
     Returns:
         String representation of the entire DAG
     """
-    if counts is not False:
-        result = f'Containment Graph with {len(G.nodes())} components (component: {unit}: rank):\n'
-    else:
-        result = f'Containment Graph with {len(G.nodes())} components (component: rank):\n'
+    result = f'Containment Graph with {len(G.nodes())} components (component: {unit}: rank):\n'
     
-    roots = [node for node, in_degree in G.in_degree() if in_degree == 0]
+    roots = sorted([node for node, in_degree in G.in_degree() if in_degree == 0])
     
     for i, root in enumerate(roots):
         result += format_dag(G, root, ranks, counts, '', i == len(roots) - 1)
@@ -310,7 +304,7 @@ def calc_containment_graph(boolean_grid, verbose=False):
     boolean_grid: bool 3D array
         Boolean 3D array of voxel occupancy.
     verbose: bool
-        Whether to print developer information.
+        Whether to progress information.
 
     Returns
     -------
@@ -326,54 +320,62 @@ def calc_containment_graph(boolean_grid, verbose=False):
         The undirected label contact graph. 
     """
     # Finding all unique label ids in the labeled grid.
+    if verbose:
+        print('Calculating non-periodic labels...')
     nonp_labeled_grid = label_3d_grid(boolean_grid)
     nonp_unique_labels = np.unique(nonp_labeled_grid)
-    if verbose:
-        print(f'Unique labels in labeled_grid: {nonp_unique_labels}')
 
     # Find all non periodic label contacts
-    nonp_contacts = find_label_contacts(nonp_labeled_grid)
     if verbose:
-        print(f'Nonperiodic label contacts: {nonp_unique_labels}')
+        print('Calculating non-periodic label contacts...')
+    nonp_contacts = find_label_contacts(nonp_labeled_grid)
 
     # Find all bridges (contacts between labels over PBC).
-    bridges = find_bridges(nonp_labeled_grid)
     if verbose:
-        print(f'Periodic bridges between labels: {nonp_unique_labels}')
+        print('Calculating periodic label contacts...')
+    bridges = find_bridges(nonp_labeled_grid)
 
     # Generate the label contact graph with bridge annotation.
+    if verbose:
+        print('Creating label contact graph...')
     contact_graph = create_contact_graph(nonp_contacts, nonp_unique_labels, bridges)
 
-    # Get all the mappings between labels and components plus their subgraphs
+    # Get all the mappings between labels and components plus their subgraphs.
+    if verbose:
+        print('Creating label subgraphs...')
     positive_subgraphs, negative_subgraphs = get_subgraphs(nonp_unique_labels, contact_graph)
     component2labels, labels2component, label2component = get_mapping_dicts(positive_subgraphs, negative_subgraphs)
-    if verbose:
-        print(f'component2labels {component2labels}')
-        print(f'labels2component {labels2component}')
-        print(f'label2component {label2component}')
 
     # Relabel the labeled_grid to take pbc into account.
+    if verbose:
+        print('Calculating component grid...')
     components_grid = create_components_grid(nonp_labeled_grid, component2labels)
     
     # Calculate the ranks for the components and complements.
-    component_ranks, complement_ranks = get_ranks(positive_subgraphs, negative_subgraphs, nonp_unique_labels, component2labels, labels2component, contact_graph)
     if verbose:
-        print(f'All rank of components: {component_ranks}')
-        print(f'Complement ranks: {complement_ranks}')
+        print('Calculating component and complement ranks...')
+    component_ranks, complement_ranks = get_ranks(positive_subgraphs, negative_subgraphs, nonp_unique_labels, component2labels, labels2component, contact_graph)
     
     # Determine weather a component is contained or not, based on the fact
     #  that a component is contained if its complement is of higher rank.
-    is_contained_dict = get_is_contained(component_ranks, complement_ranks)
     if verbose:
-        print(f'Containment status: {is_contained_dict}')
+        print('Calculating is contained...')
+    is_contained_dict = get_is_contained(component_ranks, complement_ranks)
         
     # Create the component level contact graph.
+    if verbose:
+        print('Creating component contact graph...')
     component_contact_graph = create_component_contact_graph(
         component2labels, label2component, contact_graph)
     
     # Finally create the containment graph by directing the edges in the 
     #  component contact graph (also breaking edges if they do not represent,
     #  a containment hierarchy).
+    if verbose:
+        print('Creating containment_graph...')
     unique_components = np.unique(components_grid)
     containment_graph = create_containment_graph(is_contained_dict, unique_components, component_contact_graph)
-    return containment_graph, component_contact_graph, components_grid, component_ranks, contact_graph
+
+    if verbose:
+        print('Done!')
+    return containment_graph, component_contact_graph, components_grid, component_ranks
