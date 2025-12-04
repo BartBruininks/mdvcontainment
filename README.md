@@ -82,7 +82,6 @@ pip install .
 ## Calculate the containment
 ### Input
 ```python
-# `minimal_example.py` for a CG Martini structure file
 # Import the required libraries
 import MDAnalysis as mda
 from mdvcontainment import Containment
@@ -120,12 +119,10 @@ composition, fig, axs = cl.analyze_composition(containment, mode='names') # or '
 ```
 
 ### Output
-```console
 <p align="center">
   <img width="713" height="809" alt="image" src="https://github.com/user-attachments/assets/d221d70b-7626-4be8-b872-a44e9e3bcc04" width="60%">
 </p>
 </details>
-```
 
 
 
