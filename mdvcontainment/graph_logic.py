@@ -4,8 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Python Module
-from .rank_logic import make_relabel_dicts, get_ranks, get_is_contained, get_nonp_is_contained
-from .voxels_to_gro import voxels_to_gro
+from .rank_logic import make_relabel_dicts, get_ranks, get_is_contained
 from .label import label_3d_grid, create_components_grid
 
 # Cython Module
@@ -302,7 +301,7 @@ def format_dag_structure(G, ranks, counts=False, unit='nvoxels'):
         result += format_dag(G, root, ranks, counts, '', i == len(roots) - 1)
     return result
 
-def calc_containment_graph(boolean_grid, verbose=False, write_structures=False, draw_graphs=False, slab=False):
+def calc_containment_graph(boolean_grid, verbose=False):
     """
     Creates the containment graph nx.MultiDiGraph(), taking right angled PBC into account.
     
@@ -312,12 +311,6 @@ def calc_containment_graph(boolean_grid, verbose=False, write_structures=False, 
         Boolean 3D array of voxel occupancy.
     verbose: bool
         Whether to print developer information.
-    write_structures: bool
-        Whether to write gro files of the input, labeled and components grids.
-    draw_graphs: bool
-        Whether to draw the contact graphs.
-    slab: bool
-        Whether to treat the data as a slab (non periodic in one dimension).
 
     Returns
     -------
@@ -332,81 +325,51 @@ def calc_containment_graph(boolean_grid, verbose=False, write_structures=False, 
     contact_graph: nx.Graph
         The undirected label contact graph. 
     """
-    # Return the basic counts of Trues and Falses in the input grid if verbose.
-    if verbose:
-        counts_boolean_grid = dict(zip(*np.unique(boolean_grid, return_counts=True)))
-        print(f'Value prevalence in boolean_grid: {counts_boolean_grid}')\
-
     # Finding all unique label ids in the labeled grid.
     nonp_labeled_grid = label_3d_grid(boolean_grid)
     nonp_unique_labels = np.unique(nonp_labeled_grid)
     if verbose:
         print(f'Unique labels in labeled_grid: {nonp_unique_labels}')
 
-    # Write the input and labeled structures
-    if write_structures:
-        voxels_to_gro('input.gro', boolean_grid)
-        voxels_to_gro('nonp_labels.gro', nonp_labeled_grid)
-
     # Find all non periodic label contacts
     nonp_contacts = find_label_contacts(nonp_labeled_grid)
+    if verbose:
+        print(f'Nonperiodic label contacts: {nonp_unique_labels}')
 
-    if not slab:
-        # Find all bridges (contacts between labels over PBC).
-        bridges = find_bridges(nonp_labeled_grid)
+    # Find all bridges (contacts between labels over PBC).
+    bridges = find_bridges(nonp_labeled_grid)
+    if verbose:
+        print(f'Periodic bridges between labels: {nonp_unique_labels}')
 
     # Generate the label contact graph with bridge annotation.
-    if not slab:
-        contact_graph = create_contact_graph(nonp_contacts, nonp_unique_labels, bridges)
-    else:
-        contact_graph = create_contact_graph(nonp_contacts, nonp_unique_labels)
-    if draw_graphs:
-        print('=== NON PERIODIC LABEL CONTACT GRAPH ===')
-        draw_graph(contact_graph)
+    contact_graph = create_contact_graph(nonp_contacts, nonp_unique_labels, bridges)
 
-    if not slab:
-        # Get all the mappings between labels and components plus their subgraphs
-        positive_subgraphs, negative_subgraphs = get_subgraphs(nonp_unique_labels, contact_graph)
-        component2labels, labels2component, label2component = get_mapping_dicts(positive_subgraphs, negative_subgraphs)
-        if verbose:
-            print(f'component2labels {component2labels}')
-            print(f'labels2component {labels2component}')
-            print(f'label2component {label2component}')
+    # Get all the mappings between labels and components plus their subgraphs
+    positive_subgraphs, negative_subgraphs = get_subgraphs(nonp_unique_labels, contact_graph)
+    component2labels, labels2component, label2component = get_mapping_dicts(positive_subgraphs, negative_subgraphs)
+    if verbose:
+        print(f'component2labels {component2labels}')
+        print(f'labels2component {labels2component}')
+        print(f'label2component {label2component}')
 
     # Relabel the labeled_grid to take pbc into account.
-    if not slab:
-        components_grid = create_components_grid(nonp_labeled_grid, component2labels)
-    else:
-        components_grid = nonp_labeled_grid
-    # Write the components structure file
-    if write_structures:
-        voxels_to_gro('components.gro', components_grid)
+    components_grid = create_components_grid(nonp_labeled_grid, component2labels)
     
     # Calculate the ranks for the components and complements.
-    if not slab:
-        component_ranks, complement_ranks = get_ranks(positive_subgraphs, negative_subgraphs, nonp_unique_labels, component2labels, labels2component, contact_graph)
-        if verbose:
-            print(f'All rank of components: {component_ranks}')
-            print(f'Complement ranks: {complement_ranks}')
+    component_ranks, complement_ranks = get_ranks(positive_subgraphs, negative_subgraphs, nonp_unique_labels, component2labels, labels2component, contact_graph)
+    if verbose:
+        print(f'All rank of components: {component_ranks}')
+        print(f'Complement ranks: {complement_ranks}')
+    
+    # Determine weather a component is contained or not, based on the fact
+    #  that a component is contained if its complement is of higher rank.
+    is_contained_dict = get_is_contained(component_ranks, complement_ranks)
+    if verbose:
+        print(f'Containment status: {is_contained_dict}')
         
-        # Determine weather a component is contained or not, based on the fact
-        #  that a component is contained if its complement is of higher rank.
-        is_contained_dict = get_is_contained(component_ranks, complement_ranks)
-        if verbose:
-            print(f'Containment status: {is_contained_dict}')
-    else:
-        is_contained_dict, component_ranks = get_nonp_is_contained(nonp_labeled_grid, nonp_unique_labels, write_structures)
-        
-    if not slab:
-        # Create the component level contact graph.
-        component_contact_graph = create_component_contact_graph(
-            component2labels, label2component, contact_graph)
-        # Draw the component contacts graph
-        if draw_graphs:
-            print('=== COMPONENT CONTACTS GRAPH ===')
-            draw_graph(component_contact_graph)
-    else:
-        component_contact_graph = nx.Graph(contact_graph)
+    # Create the component level contact graph.
+    component_contact_graph = create_component_contact_graph(
+        component2labels, label2component, contact_graph)
     
     # Finally create the containment graph by directing the edges in the 
     #  component contact graph (also breaking edges if they do not represent,

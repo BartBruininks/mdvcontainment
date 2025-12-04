@@ -29,11 +29,6 @@ class VoxelContainmentBase(ABC):
         return self._base._grid
     
     @property
-    def slab(self):
-        """Slab setting from base containment."""
-        return self._base._slab
-    
-    @property
     def components_grid(self):
         """Reference to the base components grid."""
         return self._base._components_grid
@@ -315,8 +310,8 @@ class VoxelContainment(VoxelContainmentBase):
     A Containment graph is a DAG which has a parent pointing to its children with an edge.
     """
     
-    def __init__(self, grid, verbose=False, write_structures=False, draw_graphs=False, 
-                 counts=True, slab=False):
+    def __init__(self, grid, verbose=False, 
+                 counts=True):
         """
         Parameters
         ----------
@@ -324,21 +319,12 @@ class VoxelContainment(VoxelContainmentBase):
             Boolean 3D grid representing the voxelized structure.
         verbose : bool
             Enable verbose output.
-        write_structures : bool
-            Write structure files.
-        draw_graphs : bool
-            Draw graphs during computation.
         counts : bool
             Calculate voxel counts per component.
-        slab : bool
-            Process as a slab (disable PBC treatment).
         """
         # Store input parameters
         self._grid = grid
         self._verbose = verbose
-        self._write_structures = write_structures
-        self._draw_graphs = draw_graphs
-        self._slab = slab
         
         # CRITICAL: Set self-reference FIRST so properties work during init
         self._base = self
@@ -362,8 +348,8 @@ class VoxelContainment(VoxelContainmentBase):
     def _calc_containment(self):
         """Calculate the containment graph."""
         return calc_containment_graph(
-            self._grid, verbose=self._verbose, write_structures=self._write_structures, 
-            draw_graphs=self._draw_graphs, slab=self._slab)
+            self._grid, verbose=self._verbose,
+            )
     
     def _compute_counts(self, grid):
         """Compute voxel counts for each component."""

@@ -259,9 +259,9 @@ class Containment(ContainmentBase):
     hierarchy. It owns all the data (voxel grids, atom mappings, etc.).
     """
     
-    def __init__(self, atomgroup, resolution, closing=False, slab=False, morph="", max_offset=0.05, 
-                 verbose=False, write_structures=False, no_mapping=False, return_counts=True, 
-                 betafactors=True):
+    def __init__(self, atomgroup, resolution, closing=False, morph="", max_offset=0.05, 
+                 verbose=False, no_mapping=False, return_counts=True, 
+                 ):
         """
         Atomgroup specifies the selected atoms. All atoms in the universe
         will be mapped, therefore removing waters from a file can make this
@@ -283,24 +283,14 @@ class Containment(ContainmentBase):
         applied in the order they appear in the string. For example,
         morph='de' will first dilate the voxel mask, and then erode it.
 
-        Slab can be set to 'True' to process slices of a larger whole,
-        this will disable any treatment of PBC.
-
         Max_offset can be set to 0 to allow any resolution scaling 
         artefact for voxelization.
 
         Verbose can be used to set developer prints.
 
-        Write_structures can be set to write the input, label and component voxel masks as a gro.
-
         No_mapping can be used to skip the generation of the voxel2atoms mapping. Making 
         the mapping is somewhat costly and if you already know you are interested in the voxel masks,
         why bother making it.
-
-        Betafactors can be set to 'True' to store the component id per atom in the beta factors column
-        of the universe. This makes it easy to extract atoms per component later on. However, this overwrites
-        any existing beta factors in the universe and it is a rather costly operation for large systems.
-        It cannot be set to 'True' when no_mapping is 'True'.
 
         Return counts is set to 'True' by default, this counts the amount of voxels per component
         this can be useful to get an estimate for the volume of a component.
@@ -312,35 +302,25 @@ class Containment(ContainmentBase):
         assert type(closing) == bool, "Closing must be a boolean."
         assert type(morph) == str, "Morph must be a string."
         assert set(morph).issubset({'d', 'e'}), "Morph strings can only contain 'd' and 'e' characters."
-        assert type(slab) == bool, "Slab must be a boolean."
         assert type(max_offset) in [float, int], "Max_offset must be a float or int."
         assert type(verbose) == bool, "Verbose must be a boolean."
-        assert type(write_structures) == bool, "Write_structures must be a boolean (write to mask.gro)."
         assert type(no_mapping) == bool, "No_mapping must be a boolean."
         assert type(return_counts) == bool, "Return_counts must be a boolean."
-        assert type(betafactors) == bool, "Betafactors must be a boolean."
 
         if closing:
             print("WARNING: The 'closing' parameter is deprecated and will be removed in future versions. Please use the 'morph' parameter with value 'de' instead.")
             if morph != "":
                 print("WARNING: Both 'closing' and 'morph' parameters are set. The 'closing' operation will be applied before the 'morph' operations.")
 
-        # Check for compatibility in settings
-        if no_mapping and betafactors:
-            raise ValueError("betafactors='True' requires no_mapping='False'.")
-
         # Store all parameters as instance attributes
         self._atomgroup = atomgroup
         self._resolution = resolution
         self._closing = closing
         self._morph = morph
-        self._slab = slab
         self._max_offset = max_offset
         self._verbose = verbose
-        self._write_structures = write_structures
         self._no_mapping = no_mapping
         self._return_counts = return_counts
-        self._betafactors = betafactors
         
         # Store universe and derived atomgroups
         self._universe = atomgroup.universe
@@ -351,15 +331,12 @@ class Containment(ContainmentBase):
         
         # Create voxel containment
         self.voxel_containment = VoxelContainment(
-            self._boolean_grid, verbose=self._verbose, write_structures=self._write_structures, 
-            slab=self._slab, counts=self._return_counts)
+            self._boolean_grid, 
+            verbose=self._verbose, 
+            counts=self._return_counts)
         
         # CRITICAL: Set self-reference for base class properties to work
         self._base = self
-
-        # Set the beta factors in the universe.atoms
-        if self._betafactors:
-            self.set_betafactors()
     
     def _voxelize_atomgroup(self):
         """

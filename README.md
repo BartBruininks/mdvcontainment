@@ -2,7 +2,7 @@
   <img src="https://github.com/user-attachments/assets/354b70dc-9069-493f-8c5b-fc756b7d14d0" width="60%">
 </p>
 
-# MDVContainment v1.0.0
+# MDVContainment v2.0.0
 Robust and fast containment charaterization for (periodic) point clouds and voxel masks for binary density labeling.
 
 **M**olecular **D**ynamics **V**oxel **Containment** yields a robust characterization of the inside and outside hierarchy for point clouds in periodic spaces of dimensionality three or lower (e.g. R^3/Z^3).
@@ -55,9 +55,9 @@ MDVContainment has been tested to work with python >= 3.12.
 
 # Installation
 ## Using pypi
-Install v1.0.0 in the current python environment:
+Install v2.0.0 in the current python environment:
 ```console
-pip install mdvcontainment==v1.0.0
+pip install mdvcontainment==v2.0.0
 ```
 
 ## Using git
@@ -79,10 +79,8 @@ pip install .
 > If you need any help with MDVContainment or have ideas for future functionalities, please raise an issue!
 
 # Minimal example CG Martini
-<details open>
-<summary>Input</summary>
-<br>
-
+## Calculate the containment
+### Input
 ```python
 # `minimal_example.py` for a CG Martini structure file
 # Import the required libraries
@@ -101,23 +99,35 @@ containment = Containment(selection, resolution=0.5, closing=True)
 # Show the containment graph with voxel counts
 print(containment)
 ```
-</details>
 
 > [!NOTE]
-> For atomistic structures use `closing=False`. Take a look at
+> For atomistic structures use `closing=False` at 0.5 nm resolution. Take a look at
 > [closing](https://en.wikipedia.org/wiki/Closing_(morphology)) (link to wikipedia) to learn more about what it does.
 
-<details open>
-<summary>Output</summary>
-<br>
-
-```
+### Output
+```console
 Containment Graph with 3 components (component: nm^3: rank):
 └── [-2: 7350: 3]
     └── [1: 477: 0]
         └── [-1: 65: 0]
 ```
+
+## Plot the compositions
+### Input
+```python
+# Plot the compositions
+composition, fig, axs = cl.analyze_composition(containment, mode='names') # or 'resnames' / 'molar'
+```
+
+### Output
+```console
+<p align="center">
+  <img width="713" height="809" alt="image" src="https://github.com/user-attachments/assets/d221d70b-7626-4be8-b872-a44e9e3bcc04" width="60%">
+</p>
 </details>
+```
+
+
 
 
 # Extensive examples
