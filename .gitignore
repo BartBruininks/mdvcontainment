@@ -2,6 +2,7 @@
 mdvcontainment/__pycache__/*
 *.pickle
 *.ipynb_checkpoints
+*.vmd
 *mdvcontainment.egg-info
 *cpython
 build

@@ -142,7 +142,7 @@ def get_mapping_dicts(positive_subgraphs, negative_subgraphs):
 
     A label is a non periodic connected component.
     A component is a (potentially) periodic connected component. Therefore 
-    a component can exist out of multiple labels.
+    a component can consists out of multiple labels.
 
     Parameters
     ----------

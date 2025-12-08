@@ -34,7 +34,7 @@ def make_complex_3D(roll=0):
     return voxels.astype(bool)
 
 
-def generate_perlin_noise_3d(shape, res, tileable=(True, True, True), seed=0):
+def _generate_perlin_noise_3d(shape, res, tileable=(True, True, True), seed=0):
     """
     Returns correlated noise. The res should be all factors of the shape.
     e.g. shape = (10,10,10) --> res = (2, 1, 5)
@@ -91,5 +91,5 @@ def generate_perlin_noise_3d(shape, res, tileable=(True, True, True), seed=0):
 
 def create_3d_boolean_grid(shape, true_prob=0.5, res=[2,2,2], seed=0):
     """Create a 3D boolean grid with the given shape and probability of True values."""
-    return (generate_perlin_noise_3d(shape, res, seed=seed) + 0.5) > true_prob
+    return (_generate_perlin_noise_3d(shape, res, seed=seed) + 0.5) > true_prob
 
