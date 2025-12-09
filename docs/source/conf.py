@@ -4,7 +4,9 @@ import sys
 import sphinx_rtd_theme
 
 # -- Path setup --------------------------------------------------------------
-sys.path.insert(0, os.path.abspath('../..'))  # point to your package root
+sys.path.insert(0, os.path.abspath('../../src'))  # point to your package root
+# Try importing your package:
+import mdvcontainment
 
 # -- Project information -----------------------------------------------------
 project = 'mdvcontainment'

@@ -1,7 +1,7 @@
-mdvcontainment.rank\_logic module
+src.atoms\_voxels\_mapping module
 =================================
 
-.. automodule:: mdvcontainment.rank_logic
+.. automodule:: src.atoms_voxels_mapping
    :members:
    :show-inheritance:
    :undoc-members:
