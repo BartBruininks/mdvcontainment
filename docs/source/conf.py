@@ -4,15 +4,13 @@ import sys
 import sphinx_rtd_theme
 
 # -- Path setup --------------------------------------------------------------
-sys.path.insert(0, os.path.abspath('../../src'))  # point to your package root
-# Try importing your package:
-import mdvcontainment
+sys.path.insert(0, os.path.abspath('..'))  # point to your package root
 
 # -- Project information -----------------------------------------------------
 project = 'mdvcontainment'
 author = 'BMH Bruininks'
-release = '2.0.0'
-version = release
+release = 'v2.0.0'
+version = 'v2.0.0'
 
 # -- General configuration ---------------------------------------------------
 extensions = [

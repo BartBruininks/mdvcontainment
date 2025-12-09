@@ -26,7 +26,7 @@
       :nosignatures:
 
       {% for item in classes %}
-      {{ item }}
+      {{ item }
       {% endfor %}
    {% endblock %}
 
