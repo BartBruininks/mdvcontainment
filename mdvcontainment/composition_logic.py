@@ -1,3 +1,7 @@
+"""
+Helper functions for high quality composition analysis and plotting.
+"""
+
 # Python 
 from collections import Counter
 

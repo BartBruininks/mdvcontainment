@@ -1,3 +1,7 @@
+"""
+Labeling of connected components.
+"""
+
 # Python External
 import numpy as np
 from scipy.ndimage import label

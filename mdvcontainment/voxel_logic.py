@@ -1,3 +1,7 @@
+"""
+Mapping atoms to and from voxels, taking MDAnalysis.Atomgroups as the atomic representation.
+"""
+
 # Python
 from pathlib import Path
 
@@ -323,8 +327,8 @@ def voxels_to_universe(
     """
     Coverts the (selected) nodes in the voxel array into an MDA.Universe.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     arr : np.array(int)
         A labeled voxel array (int or bool).
     scale : float
@@ -334,9 +338,10 @@ def voxels_to_universe(
     nodes : list(int)
         A (sub)selection of nodes to add to the created universe.
 
-    Returns:
-    --------
+    Returns
+    -------
     universe : MDAnalysis.Universe
+        The voxel positions as atoms in a universe with their node IDs as atom names.
     """
     # Optional filtering
     if nodes is not None:

@@ -1,3 +1,7 @@
+"""
+Perlin-noise based creation of synthetic labeling data.
+"""
+
 # Python External
 import numpy as np
 

@@ -1,3 +1,7 @@
+"""
+Graph handling functions for creating and formatting graphs.
+"""
+
 # Python External
 import networkx as nx
 import numpy as np

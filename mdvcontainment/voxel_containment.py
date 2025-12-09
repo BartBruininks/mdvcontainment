@@ -1,3 +1,7 @@
+"""
+Containment analysis at the voxel level, these classes perform the heavy lifting.
+"""
+
 # Python External 
 from abc import ABC
 import numpy as np
@@ -188,14 +192,19 @@ class VoxelContainmentBase(ABC):
     
     def get_universe_from_nodes(self, nodes=None, universe=None):
         """
-        Returns the positions of the (selected) nodes as atoms in an MDAnalysis.universe.
+        Returns the positions of the (selected) nodes as atoms in an MDAnalysis.Universe.
         
-        Parameters:
-        -----------
+        Parameters
+        ----------
         nodes : list of int
             The selected nodes ids to include in the universe.
         universe: MDAnalysis.Universe
             A helper universe to read the dimensions from for scaling.
+
+        Returns
+        -------
+        MDA.Universe
+            The voxel positions as atoms in a universe with their node IDs as atom names.
         """
         if nodes is None:
             nodes = self.nodes

@@ -21,10 +21,10 @@ extensions = [
     'myst_parser',           # For Markdown support
 ]
 
-autosummary_generate = False   # Generate stub files automatically
+autosummary_generate = True   # Generate stub files automatically
 autodoc_typehints = 'description'
 autodoc_default_options = {
-#    'members': True,
+    'members': True,
     'undoc-members': False,
     'private-members': False,
     'show-inheritance': True,
