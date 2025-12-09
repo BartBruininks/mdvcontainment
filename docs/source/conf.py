@@ -125,13 +125,29 @@ def linkcode_resolve(domain, info):
             return None
         
         # Convert absolute path to relative path from repo root
-        base_path = os.path.abspath('..')
-        if not source_file.startswith(base_path):
-            print(f"Source file not in repo (base: {base_path})")
-            return None
+        # Go up two levels from docs/source to get to repo root
+        base_path = os.path.abspath('../..')
+        print(f"Base path (repo root): {base_path}")
         
-        rel_path = os.path.relpath(source_file, base_path)
-        print(f"Relative path: {rel_path}")
+        # Check if source is in the repo checkout
+        if source_file.startswith(base_path):
+            rel_path = os.path.relpath(source_file, base_path)
+            print(f"Relative path from repo: {rel_path}")
+        # If not, check if it's in site-packages (non-editable install)
+        elif 'site-packages' in source_file:
+            print("File is in site-packages, attempting to map to repo")
+            # Extract the path after site-packages/
+            parts = source_file.split('site-packages/')
+            if len(parts) > 1:
+                # Get the package-relative path (e.g., mdvcontainment/mda_containment.py)
+                rel_path = parts[1]
+                print(f"Mapped to relative path: {rel_path}")
+            else:
+                print("Could not extract path from site-packages")
+                return None
+        else:
+            print(f"Source file not in repo or site-packages")
+            return None
         
         # Try to get line number
         try:
@@ -157,7 +173,7 @@ def linkcode_resolve(domain, info):
         print("=== Falling back to original behavior ===")
         module = info['module']
         filename = module.replace('.', '/')
-        base_path = os.path.abspath('..')
+        base_path = os.path.abspath('../..')
         pyx_path = os.path.join(base_path, f'{filename}.pyx')
         
         print(f"Checking for .pyx file: {pyx_path}")
@@ -168,7 +184,7 @@ def linkcode_resolve(domain, info):
         
         print("No .pyx file found, returning None")
         return None
-
+    
 autosummary_generate = True
 autodoc_typehints = 'description'
 autodoc_default_options = {
