@@ -1,0 +1,15 @@
+sphinx
+sphinx-rtd-theme
+sphinx-ext-napoleon
+myst-parser
+# Your project's external dependencies (e.g., those in setup.cfg/pyproject.toml)
+numpy
+mdanalysis
+networkx
+numpy>=2.2,
+networkx>=3.4
+scipy>=1.15
+MDAnalysis>=2.8
+matplotlib>=3.10
+
+
