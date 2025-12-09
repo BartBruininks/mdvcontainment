@@ -6,8 +6,8 @@ import numpy as np
 import MDAnalysis as mda
 
 # Python Module
-from .atomgroup_to_voxels import create_voxels, voxels2atomgroup, morph_voxels
-from .containment_main import VoxelContainment
+from .voxel_logic import create_voxels, voxels2atomgroup, morph_voxels
+from .voxel_containment import VoxelContainment
 from .graph_logic import format_dag_structure
 
 

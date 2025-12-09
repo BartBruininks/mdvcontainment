@@ -30,9 +30,7 @@ def make_complex_3D(roll=0):
     voxels = np.roll(voxels, roll, 0)
     voxels = np.roll(voxels, roll, 1)
     voxels = np.roll(voxels, roll, 1)
-    
     return voxels.astype(bool)
-
 
 def _generate_perlin_noise_3d(shape, res, tileable=(True, True, True), seed=0):
     """
@@ -87,7 +85,6 @@ def _generate_perlin_noise_3d(shape, res, tileable=(True, True, True), seed=0):
     n0 = (1-t[:,:,:,1])*n00 + t[:,:,:,1]*n10
     n1 = (1-t[:,:,:,1])*n01 + t[:,:,:,1]*n11
     return ((1-t[:,:,:,2])*n0 + t[:,:,:,2]*n1)
-
 
 def create_3d_boolean_grid(shape, true_prob=0.5, res=[2,2,2], seed=0):
     """Create a 3D boolean grid with the given shape and probability of True values."""

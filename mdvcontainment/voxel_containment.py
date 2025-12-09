@@ -5,6 +5,7 @@ import networkx as nx
 
 # Python Module
 from .graph_logic import format_dag_structure, calc_containment_graph
+from .voxel_logic import voxels_to_universe
 
 
 class VoxelContainmentBase(ABC):
@@ -184,6 +185,22 @@ class VoxelContainmentBase(ABC):
         mask = self.get_voxel_mask(nodes)
         indices = np.where(mask)
         return np.array(indices).T
+    
+    def get_universe_from_nodes(self, nodes=None, universe=None):
+        """
+        Returns the positions of the (selected) nodes as atoms in an MDAnalysis.universe.
+        
+        Parameters:
+        -----------
+        nodes : list of int
+            The selected nodes ids to include in the universe.
+        universe: MDAnalysis.Universe
+            A helper universe to read the dimensions from for scaling.
+        """
+        if nodes is None:
+            nodes = self.nodes
+        mask = self.get_voxel_mask(nodes)
+        return voxels_to_universe(mask, nodes=self.nodes, universe=universe)
     
     def format_containment(self):
         """
