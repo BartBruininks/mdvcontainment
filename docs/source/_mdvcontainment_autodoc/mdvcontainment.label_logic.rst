@@ -1,13 +1,7 @@
-﻿mdvcontainment.label\_logic
-===========================
+mdvcontainment.label\_logic module
+==================================
 
 .. automodule:: mdvcontainment.label_logic
-
-   
-   .. rubric:: Functions
-
-   .. autosummary::
-   
-      create_components_grid
-      label_3d_grid
-   
+   :members:
+   :show-inheritance:
+   :undoc-members:

@@ -1,18 +1,7 @@
-﻿mdvcontainment.composition\_logic
-=================================
+mdvcontainment.composition\_logic module
+========================================
 
 .. automodule:: mdvcontainment.composition_logic
-
-   
-   .. rubric:: Functions
-
-   .. autosummary::
-   
-      analyze_composition
-      combine_dicts
-      get_color_mapping
-      get_compositions
-      get_unique_labels
-      plot_pie_chart
-      show_containment_with_composition
-   
+   :members:
+   :show-inheritance:
+   :undoc-members:

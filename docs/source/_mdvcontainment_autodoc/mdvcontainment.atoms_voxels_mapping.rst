@@ -1,13 +1,7 @@
-﻿mdvcontainment.atoms\_voxels\_mapping
-=====================================
+mdvcontainment.atoms\_voxels\_mapping module
+============================================
 
 .. automodule:: mdvcontainment.atoms_voxels_mapping
-
-   
-   .. rubric:: Functions
-
-   .. autosummary::
-   
-      create_efficient_mapping_cy
-      voxels2atomgroup_cy
-   
+   :members:
+   :show-inheritance:
+   :undoc-members:

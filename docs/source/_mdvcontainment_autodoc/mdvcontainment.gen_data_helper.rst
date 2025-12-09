@@ -1,13 +1,7 @@
-﻿mdvcontainment.gen\_data\_helper
-================================
+mdvcontainment.gen\_data\_helper module
+=======================================
 
 .. automodule:: mdvcontainment.gen_data_helper
-
-   
-   .. rubric:: Functions
-
-   .. autosummary::
-   
-      create_3d_boolean_grid
-      make_complex_3D
-   
+   :members:
+   :show-inheritance:
+   :undoc-members:

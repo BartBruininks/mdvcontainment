@@ -1,12 +1,7 @@
-﻿mdvcontainment.find\_bridges
-============================
+mdvcontainment.find\_bridges module
+===================================
 
 .. automodule:: mdvcontainment.find_bridges
-
-   
-   .. rubric:: Functions
-
-   .. autosummary::
-   
-      find_bridges
-   
+   :members:
+   :show-inheritance:
+   :undoc-members:

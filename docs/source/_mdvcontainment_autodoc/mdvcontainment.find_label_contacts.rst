@@ -1,12 +1,7 @@
-﻿mdvcontainment.find\_label\_contacts
-====================================
+mdvcontainment.find\_label\_contacts module
+===========================================
 
 .. automodule:: mdvcontainment.find_label_contacts
-
-   
-   .. rubric:: Functions
-
-   .. autosummary::
-   
-      find_label_contacts
-   
+   :members:
+   :show-inheritance:
+   :undoc-members:

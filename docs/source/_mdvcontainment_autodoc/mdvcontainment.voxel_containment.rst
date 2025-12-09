@@ -1,14 +1,7 @@
-﻿mdvcontainment.voxel\_containment
-=================================
+mdvcontainment.voxel\_containment module
+========================================
 
 .. automodule:: mdvcontainment.voxel_containment
-
-   
-   .. rubric:: Classes
-
-   .. autosummary::
-   
-      VoxelContainment
-      VoxelContainmentBase
-      VoxelContainmentView
-   
+   :members:
+   :show-inheritance:
+   :undoc-members:

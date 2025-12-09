@@ -1,14 +1,7 @@
-﻿mdvcontainment.mda\_containment
-===============================
+mdvcontainment.mda\_containment module
+======================================
 
 .. automodule:: mdvcontainment.mda_containment
-
-   
-   .. rubric:: Classes
-
-   .. autosummary::
-   
-      Containment
-      ContainmentBase
-      ContainmentView
-   
+   :members:
+   :show-inheritance:
+   :undoc-members:
