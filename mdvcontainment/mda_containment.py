@@ -1,8 +1,66 @@
+"""
+Containment Module
+==================
+
+This module provides classes for hierarchical spatial containment analysis of molecular systems.
+
+The containment hierarchy represents nested spatial compartments detected in molecular structures,
+enabling analysis of volumes, boundaries, and relationships between different regions. The module
+supports efficient voxel-based representations with memory-efficient views.
+
+Classes
+-------
+ContainmentBase
+    Abstract base class providing shared functionality for containment operations.
+Containment
+    Main class for creating and managing voxelized containment hierarchies.
+ContainmentView
+    Memory-efficient view on a Containment with merged or filtered nodes.
+
+Key Features
+------------
+- Voxel-based spatial decomposition of molecular systems
+- Hierarchical containment graph construction
+- Memory-efficient views for filtered/merged structures
+- Bidirectional mapping between voxels and atoms
+- Volume calculations and spatial queries
+- Integration with MDAnalysis for molecular dynamics analysis
+
+Examples
+--------
+Basic usage with an MDAnalysis AtomGroup:
+
+>>> import MDAnalysis as mda
+>>> u = mda.Universe('topology.pdb', 'trajectory.xtc')
+>>> membrane = u.select_atoms('resname POPC')
+>>> containment = Containment(membrane, resolution=0.5)
+>>> print(containment)
+
+Create a filtered view:
+
+>>> # Keep only large compartments (>200 nm³)
+>>> view = containment.node_view(min_size=200)
+>>> atoms = view.get_atomgroup_from_nodes([1, 2, 3])
+
+See Also
+--------
+voxel_logic : Functions for voxel creation and manipulation
+voxel_containment : Core containment graph algorithms
+graph_logic : DAG structure formatting utilities
+
+Notes
+-----
+The module uses nanometer (nm) units for lengths and volumes. MDAnalysis 
+atomgroups using Angstrom units are automatically converted internally.
+"""
+
 # Python
 from abc import ABC
+from typing import Union, List, Set, Dict, Tuple, Optional
 
 # Python External
 import numpy as np
+import numpy.typing as npt
 import MDAnalysis as mda
 
 # Python Module
@@ -15,13 +73,56 @@ class ContainmentBase(ABC):
     """
     Abstract base class for Containment and ContainmentView.
     
-    Contains all shared functionality that works on any containment (original or view).
-    Subclasses must set:
-    - self._base: Reference to the data owner (Containment instance)
-    - self.voxel_containment: VoxelContainment or VoxelContainmentView instance
+    This class provides all shared functionality that operates on containment data,
+    whether it's the original full containment or a filtered view. Concrete subclasses
+    must initialize two attributes:
+    
+    - ``self._base``: Reference to the Containment instance that owns the data
+    - ``self.voxel_containment``: VoxelContainment or VoxelContainmentView instance
+    
+    The base class provides properties that delegate to the base containment for
+    data access, ensuring views share memory with the original containment.
+    
+    Attributes
+    ----------
+    nodes : list
+        List of containment node IDs in the current structure.
+    voxel_volume : float
+        Volume of a single voxel in nm³.
+    voxel_volumes : dict
+        Mapping from node ID to volume in nm³.
+    atomgroup : MDAnalysis.AtomGroup
+        The original atomgroup used to create the containment.
+    universe : MDAnalysis.Universe
+        The universe containing all atoms.
+    negative_atomgroup : MDAnalysis.AtomGroup
+        Atoms in the universe not included in the main atomgroup.
+    resolution : float
+        Voxel resolution in nanometers.
+    closing : bool
+        Whether binary closing was applied during voxelization.
+    morph : str
+        Morphological operations applied ('d' for dilation, 'e' for erosion).
+    boolean_grid : numpy.ndarray
+        3D boolean array representing the voxelized structure.
+    voxel2atom : dict
+        Mapping from voxel positions to atom indices.
+    
+    See Also
+    --------
+    Containment : Main containment class that owns data.
+    ContainmentView : Memory-efficient view with merged nodes.
     """
     
-    def __str__(self):
+    def __str__(self) -> str:
+        """
+        Return a formatted string representation of the containment hierarchy.
+        
+        Returns
+        -------
+        str
+            Multi-line string showing the DAG structure with node volumes.
+        """
         return format_dag_structure(
             self.voxel_containment.containment_graph, 
             self.voxel_containment.component_ranks, 
@@ -31,83 +132,180 @@ class ContainmentBase(ABC):
     # Properties - all delegate to _base for data access
 
     @property
-    def nodes(self):
-        """Containment nodes."""
+    def nodes(self) -> List[int]:
+        """
+        List of containment node IDs.
+        
+        Returns
+        -------
+        list of int
+            Node identifiers in the current containment structure.
+        """
         return self.voxel_containment.nodes
     
     @property
-    def voxel_volume(self):
-        """Volume of a single voxel in nm^3."""
+    def voxel_volume(self) -> float:
+        """
+        Volume of a single voxel.
+        
+        Returns
+        -------
+        float
+            Volume in nm³ calculated from universe dimensions and grid shape.
+        """
         total_volume = np.prod(self.universe.dimensions[:3])
         total_voxels = np.prod(self.boolean_grid.shape)
         return (total_volume / total_voxels) / 1000  # Convert A^3 to nm^3
     
     @property
-    def voxel_volumes(self):
+    def voxel_volumes(self) -> Dict[int, float]:
         """
-        Voxel volumes dict (nm^3) for each node in the current containment graph.
+        Volume of each node in the containment graph.
+        
+        Returns
+        -------
+        dict of {int: float}
+            Mapping from node ID to volume in nm³.
         """
         voxel_counts = self.voxel_containment.voxel_counts
         volumes = {key: value*self._base.voxel_volume for key, value in voxel_counts.items()}
         return volumes
     
     @property
-    def atomgroup(self):
-        """Reference to the original atomgroup."""
+    def atomgroup(self) -> mda.AtomGroup:
+        """
+        Original atomgroup used to create the containment.
+        
+        Returns
+        -------
+        MDAnalysis.AtomGroup
+            The atomgroup that was voxelized.
+        """
         return self._base._atomgroup
     
     @property
-    def universe(self):
-        """Reference to the original universe."""
+    def universe(self) -> mda.Universe:
+        """
+        Universe containing all atoms.
+        
+        Returns
+        -------
+        MDAnalysis.Universe
+            The complete molecular system.
+        """
         return self._base._universe
     
     @property
-    def negative_atomgroup(self):
-        """Reference to the negative atomgroup from base."""
+    def negative_atomgroup(self) -> mda.AtomGroup:
+        """
+        Atoms not included in the main atomgroup.
+        
+        Returns
+        -------
+        MDAnalysis.AtomGroup
+            Atoms in the universe minus the original atomgroup.
+        """
         return self._base._negative_atomgroup
     
     @property
-    def resolution(self):
-        """Resolution from base containment."""
+    def resolution(self) -> float:
+        """
+        Voxel resolution used for discretization.
+        
+        Returns
+        -------
+        float
+            Resolution in nanometers.
+        """
         return self._base._resolution
     
     @property
-    def closing(self):
-        """Closing parameter from base containment."""
+    def closing(self) -> bool:
+        """
+        Whether binary closing was applied.
+        
+        Returns
+        -------
+        bool
+            True if binary closing (dilation + erosion) was used.
+        
+        .. deprecated:: 
+           Use the ``morph`` parameter instead.
+        """
         return self._base._closing
     
     @property
-    def morph(self):
-        """Morph parameter from base containment."""
+    def morph(self) -> str:
+        """
+        Morphological operations applied to the voxel grid.
+        
+        Returns
+        -------
+        str
+            String of operations: 'd' for dilation, 'e' for erosion.
+        """
         return self._base._morph
     
     @property
-    def boolean_grid(self):
-        """Reference to the boolean grid from base."""
+    def boolean_grid(self) -> npt.NDArray[np.bool_]:
+        """
+        3D boolean array representing the voxelized structure.
+        
+        Returns
+        -------
+        numpy.ndarray of bool
+            Boolean grid where True indicates occupied voxels.
+        """
         return self._base._boolean_grid
     
     @property
-    def voxel2atom(self):
-        """Reference to the voxel2atom mapping from base."""
+    def voxel2atom(self) -> Dict[Tuple[int, int, int], Set[int]]:
+        """
+        Mapping from voxel positions to atom indices.
+        
+        Returns
+        -------
+        dict of {tuple: set}
+            Keys are voxel position tuples (i, j, k), values are sets of atom indices.
+        """
         return self._base._voxel2atom
     
     # Shared methods - work identically for both Containment and ContainmentView
     
-    def get_atomgroup_from_voxel_positions(self, voxels):
+    def get_atomgroup_from_voxel_positions(
+        self, 
+        voxels: npt.ArrayLike
+    ) -> mda.AtomGroup:
         """
-        Converts the voxels in a voxel array back to an atomgroup.
-        Takes a voxel position array and uses the stored mapping to generate 
-        a corresponding atomgroup. This is the inverse of create_voxels.
+        Convert voxel positions back to an atomgroup.
+        
+        This is the inverse operation of voxelization, using the stored mapping
+        to retrieve the atoms that occupy the specified voxel positions.
         
         Parameters
         ----------
-        voxels: array-like of shape (M, 3)
-            Voxel positions to convert back to atoms.
-
+        voxels : array_like, shape (M, 3)
+            Voxel positions as (i, j, k) indices.
+        
         Returns
         -------
-        atomgroup: MDAnalysis AtomGroup
-            The atomgroup corresponding to the provided voxel positions.   
+        MDAnalysis.AtomGroup
+            Atoms corresponding to the provided voxel positions.
+        
+        Raises
+        ------
+        ValueError
+            If the containment was created with ``no_mapping=True``.
+        
+        Examples
+        --------
+        >>> voxels = np.array([[10, 20, 30], [11, 20, 30]])
+        >>> atoms = containment.get_atomgroup_from_voxel_positions(voxels)
+        >>> print(len(atoms))
+        
+        See Also
+        --------
+        get_atomgroup_from_nodes : Get atoms for specific containment nodes.
         """
         if self._base._no_mapping:
             raise ValueError(
@@ -117,21 +315,46 @@ class ContainmentBase(ABC):
             )
         return voxels2atomgroup(voxels, self.voxel2atom, self.atomgroup)
     
-    def get_atomgroup_from_nodes(self, nodes, containment=False):
+    def get_atomgroup_from_nodes(
+        self, 
+        nodes: List[int], 
+        containment: bool = False
+    ) -> mda.AtomGroup:
         """
-        Returns an atomgroup for the specified containment nodes.
-
+        Extract atoms belonging to specified containment nodes.
+        
         Parameters
         ----------
-        nodes: list of int
-            The containment node ids to extract atoms for.
-        containment: bool
-            If True, retrieves all inner compartments as well. 
-
+        nodes : list of int
+            Containment node IDs to extract atoms for.
+        containment : bool, optional
+            If True, also includes all atoms from nodes contained within
+            the specified nodes (downstream in the hierarchy). Default is False.
+        
         Returns
         -------
-        atomgroup: MDAnalysis AtomGroup
-            The atomgroup corresponding to the provided containment nodes.
+        MDAnalysis.AtomGroup
+            Atoms corresponding to the specified nodes.
+        
+        Raises
+        ------
+        ValueError
+            If the containment was created with ``no_mapping=True``.
+        
+        Examples
+        --------
+        Get atoms for specific nodes:
+        
+        >>> atoms = containment.get_atomgroup_from_nodes([1, 2, 3])
+        
+        Get atoms including all contained compartments:
+        
+        >>> atoms = containment.get_atomgroup_from_nodes([1], containment=True)
+        
+        See Also
+        --------
+        get_atomgroup_from_voxel_positions : Convert voxels to atoms.
+        node_view : Create a filtered view of the containment.
         """
         if self._base._no_mapping:
             raise ValueError(
@@ -144,36 +367,29 @@ class ContainmentBase(ABC):
         if containment:
             nodes = self.voxel_containment.get_downstream_nodes(nodes)
         
-        # TODO: Proper benchmarking of both methods, for now it seems like needless complexity.
-        ## Uses the precalculated components per atom index in the tempfactors.
-        #if self._base._betafactors:
-        #    mask = np.isin(self.universe.atoms.tempfactors, nodes)
-        #    atomgroup = self.universe.atoms[mask]
-        ## Fallback to using the voxel mapping if the betafactors
-        ## have not been set for performance reasons. This is useful
-        ## when one only wants to extract/interact with a small part
-        ## of the universe.
-        #else:
-
         voxel_positions = self.voxel_containment.get_voxel_positions(nodes)
         atomgroup = self.get_atomgroup_from_voxel_positions(voxel_positions)
         return atomgroup
     
-    def _filter_nodes_on_volume(self, nodes, min_size):
+    def _filter_nodes_on_volume(
+        self, 
+        nodes: List[int], 
+        min_size: float
+    ) -> List[int]:
         """
-        Filter nodes based on their volumes (in nm^3) -- includes their downstream nodes.
+        Filter nodes based on their total volume including contained nodes.
         
         Parameters
         ----------
-        nodes : list
-            Nodes to include in the filtering
-        min_size : int
-            Minimum size (in voxels) for a node plus its downstream nodes to be kept.
+        nodes : list of int
+            Node IDs to filter.
+        min_size : float
+            Minimum volume in nm³ for a node plus its downstream nodes.
         
         Returns
         -------
-        list
-            List of nodes that meet the size requirement.
+        list of int
+            Node IDs that meet the size requirement.
         """
         filtered_nodes = []
         for node in nodes:
@@ -183,31 +399,52 @@ class ContainmentBase(ABC):
                 filtered_nodes.append(int(node))
         return filtered_nodes
     
-    def node_view(self, keep_nodes=None, min_size=0):
+    def node_view(
+        self, 
+        keep_nodes: Optional[List[int]] = None, 
+        min_size: float = 0
+    ) -> 'ContainmentView':
         """
-        Create a view where only keep_nodes > min_size are exposed.
+        Create a view with filtered or merged nodes.
         
-        Nodes not in keep_nodes or smaller than min_size are merged upstream to 
-        their nearest kept ancestor. This creates a ContainmentView that shares 
-        the underlying data (voxel grids, atom mappings) with the base Containment 
-        for memory efficiency.
+        This creates a ContainmentView that shares underlying data with the base
+        Containment for memory efficiency. Nodes not in ``keep_nodes`` or smaller
+        than ``min_size`` are merged upstream to their nearest kept ancestor.
         
         Parameters
         ----------
-        keep_nodes : list
-            Nodes to keep in the view. Other nodes are merged upstream.
-        min_size : int
-            Minimum size (in voxels) for a node plus its downstream nodes to be kept.
+        keep_nodes : list of int, optional
+            Nodes to keep in the view. If None, keeps all nodes. Nodes not
+            in this list are merged to their nearest kept ancestor.
+        min_size : float, optional
+            Minimum volume in nm³ for a node (including downstream nodes) to
+            be kept. Nodes smaller than this are merged upstream. Default is 0.
         
         Returns
         -------
         ContainmentView
-            A view with the same API but merged nodes.
+            A view with the same API as Containment but with merged nodes.
+        
+        Raises
+        ------
+        AssertionError
+            If ``keep_nodes`` contains node IDs not present in the current structure.
         
         Examples
         --------
-        >>> containment = Containment(atomgroup, resolution=0.5)
-        >>> # Remove small compartments and at most keep provided node list
+        Remove small compartments:
+        
+        >>> # Keep only compartments larger than 200 nm³
+        >>> view = containment.node_view(min_size=200)
+        
+        Keep specific nodes:
+        
+        >>> # Keep only nodes 1, 3, 5, 7
+        >>> view = containment.node_view([1, 3, 5, 7])
+        
+        Combine both filters:
+        
+        >>> # Keep specific nodes that are also large enough
         >>> view = containment.node_view([1, 3, 5, 7], min_size=200)
         >>> 
         >>> # Work with the simplified structure
@@ -216,6 +453,16 @@ class ContainmentBase(ABC):
         >>> 
         >>> # Original containment is unchanged
         >>> print(containment)  # Shows full structure
+        
+        Notes
+        -----
+        Views always reference the original base Containment, not intermediate
+        views. This ensures consistent data sharing and prevents chains of views.
+        
+        See Also
+        --------
+        ContainmentView : The view class returned by this method.
+        get_atomgroup_from_nodes : Extract atoms from view nodes.
         """
         if keep_nodes is None:
             keep_nodes = self.nodes
@@ -229,14 +476,41 @@ class ContainmentBase(ABC):
         # Always create view from the original base, not from intermediate views
         return ContainmentView(self._base, keep_nodes)
     
-    def set_betafactors(self):
+    def set_betafactors(self) -> None:
         """
-        Sets the component id per atom in the beta factors column of the universe.
+        Store node IDs in the universe's tempfactors (B-factors) column.
         
-        For Containment: Sets original node IDs.
-        For ContainmentView: Sets view node IDs (merged nodes get same ID).
+        This assigns each atom's containment node ID to its tempfactor field,
+        enabling visualization in molecular viewers and quick node-based selections.
+        For views, this stores the merged view node IDs.
         
-        Note: This modifies the universe and overwrites any existing tempfactors.
+        Raises
+        ------
+        ValueError
+            If the containment was created with ``no_mapping=True``.
+        
+        Warnings
+        --------
+        This modifies the universe and overwrites any existing tempfactor values.
+        
+        Examples
+        --------
+        >>> containment.set_betafactors()
+        >>> # Now tempfactors contain node IDs
+        >>> u.atoms.write('structure_with_nodes.pdb')
+        
+        >>> # Use in selections
+        >>> node_1_atoms = u.select_atoms('tempfactor 1')
+        
+        Notes
+        -----
+        If tempfactors don't exist in the universe, they will be created.
+        A message is printed indicating whether original or view node IDs
+        are being written.
+        
+        See Also
+        --------
+        get_atomgroup_from_nodes : Alternative method for node-based selections.
         """
         if self._base._no_mapping:
             raise ValueError(
@@ -275,48 +549,114 @@ class ContainmentBase(ABC):
 
 class Containment(ContainmentBase):
     """
-    Main containment class that creates and owns voxelized data.
+    Hierarchical spatial containment analysis of molecular systems.
     
-    This class performs voxelization of an atomgroup and creates the containment
-    hierarchy. It owns all the data (voxel grids, atom mappings, etc.).
+    This class creates a voxelized representation of an atomgroup and constructs
+    a containment hierarchy showing which spatial regions contain others. It owns
+    all the underlying data including voxel grids and atom mappings.
+    
+    The containment hierarchy is represented as a directed acyclic graph (DAG) where
+    edges point from containing regions to contained regions. This enables analysis
+    of volumes, boundaries, and spatial relationships.
+    
+    Parameters
+    ----------
+    atomgroup : MDAnalysis.AtomGroup
+        The atoms to voxelize and analyze. All atoms in the universe will be
+        mapped, so removing unnecessary atoms (e.g., water) before creating
+        the universe can improve performance.
+    resolution : float
+        Voxel size in nanometers. Smaller values give finer detail but require
+        more memory and computation time.
+    closing : bool, optional
+        If True, applies binary closing (dilation then erosion) to fill small
+        gaps. Usually required for coarse-grained simulations at 0.5 nm resolution.
+        Default is False. **Deprecated**: Use ``morph='de'`` instead.
+    morph : str, optional
+        Morphological operations to apply: 'd' for dilation, 'e' for erosion.
+        Operations are applied in order. For example, ``morph='de'`` is equivalent
+        to ``closing=True``. Default is empty string (no operations).
+    max_offset : float, optional
+        Maximum allowed voxel alignment offset as a fraction of resolution.
+        Set to 0 to allow any offset. Default is 0.05.
+    verbose : bool, optional
+        If True, prints progress information during construction. Default is False.
+    no_mapping : bool, optional
+        If True, skips creating the voxel-to-atom mapping, improving performance
+        when atom-level operations are not needed. Methods that require this mapping
+        will raise errors. Default is False.
+    
+    Attributes
+    ----------
+    voxel_containment : VoxelContainment
+        The underlying containment graph and voxel operations.
+    nodes : list of int
+        All node IDs in the containment hierarchy.
+    voxel_volumes : dict of {int: float}
+        Volume in nm³ for each node.
+    
+    Raises
+    ------
+    AssertionError
+        If parameters have incorrect types.
+    
+    Examples
+    --------
+    Basic usage:
+    
+    >>> import MDAnalysis as mda
+    >>> u = mda.Universe('membrane.gro')
+    >>> lipids = u.select_atoms('resname POPC POPE')
+    >>> containment = Containment(lipids, resolution=0.5, morph='de')
+    >>> print(containment)
+    
+    Access volumes:
+    
+    >>> volumes = containment.voxel_volumes
+    >>> print(f"Node 1 volume: {volumes[1]} nm³")
+    
+    Extract atoms for specific compartments:
+    
+    >>> outer_shell = containment.get_atomgroup_from_nodes([1])
+    >>> inner_core = containment.get_atomgroup_from_nodes([2], containment=True)
+    
+    Create simplified views:
+    
+    >>> # Keep only large compartments
+    >>> view = containment.node_view(min_size=100)
+    >>> print(view)
+    
+    Performance optimization:
+    
+    >>> # Skip mapping if only analyzing volumes
+    >>> fast = Containment(lipids, resolution=1.0, no_mapping=True)
+    >>> print(fast.voxel_volumes)  # Works fine
+    >>> # fast.get_atomgroup_from_nodes([1])  # Would raise error
+    
+    Notes
+    -----
+    - Resolution units are nanometers, while MDAnalysis uses Angstroms internally
+    - The universe's box dimensions must be defined for voxelization
+    - Memory usage scales with ``(box_size / resolution)³``
+    - For CG Martini simulations, typical resolutions are 0.5-1.0 nm
+    
+    See Also
+    --------
+    ContainmentView : Memory-efficient filtered views
+    node_view : Create simplified containment structures
+    VoxelContainment : Underlying voxel-level operations
     """
     
-    def __init__(self, atomgroup, resolution, closing=False, morph="", max_offset=0.05, 
-                 verbose=False, no_mapping=False, 
-                 ):
-        """
-        Atomgroup specifies the selected atoms. All atoms in the universe
-        will be mapped, therefore removing waters from a file can make this
-        faster if you do not need them.
-        
-        Resolution is taken in nn for MDA atomgroups. You do 
-        not need to preprocess the positions, the units of the 
-        atomgroup are converted from A to nm internally.
-
-        Closing applies binary dilation and erosion, often called
-        binary closure. This closes small gaps in the voxel mask.
-        This is usually required for CG Martini simulations when,
-        using a resolution of 0.5 nm. For a resolution of 1 nm it
-        is not required and disadvised.
-
-        Morph can be used to apply additional morphological operations
-        on the voxel mask. It is a string containing 'd' and 'e' characters,
-        where 'd' is dilation and 'e' is erosion. The operations are
-        applied in the order they appear in the string. For example,
-        morph='de' will first dilate the voxel mask, and then erode it, 
-        which is equivalent to closing. 
-
-        Max_offset can be set to 0 to allow any resolution scaling 
-        artefact for voxelization.
-
-        Verbose can be used to set progress prints.
-
-        No_mapping can be used to skip the generation of the voxel2atoms mapping. Making 
-        the mapping is somewhat costly and if you already know you are not interested in 
-        backmapping to atoms, why bother making it.
-
-        All voxel logic (selecting by component etc) can be found under self.voxel_containment.
-        """
+    def __init__(
+        self, 
+        atomgroup: mda.AtomGroup, 
+        resolution: Union[float, int], 
+        closing: bool = False, 
+        morph: str = "", 
+        max_offset: Union[float, int] = 0.05, 
+        verbose: bool = False, 
+        no_mapping: bool = False
+    ) -> None:
         assert isinstance(atomgroup, mda.core.groups.AtomGroup), "Atomgroup must be an MDAnalysis AtomGroup."
         assert type(resolution) in [float, int], "Resolution must be a float or int."
         assert type(closing) == bool, "Closing must be a boolean."
@@ -353,13 +693,21 @@ class Containment(ContainmentBase):
         # CRITICAL: Set self-reference for base class properties to work
         self._base = self
     
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a concise string representation."""
         return f'<Containment with {len(self.universe.atoms)} atoms in a {self.voxel_containment.grid.shape} grid with a resolution of {self.resolution} nm>'
     
-    def _voxelize_atomgroup(self):
+    def _voxelize_atomgroup(
+        self
+    ) -> Tuple[npt.NDArray[np.bool_], Dict[Tuple[int, int, int], Set[int]]]:
         """
-        Creates a boolean grid from the atomgroup and returns
-        the boolean grid, voxel2atom.
+        Create boolean grid from atomgroup.
+        
+        Returns
+        -------
+        tuple of (numpy.ndarray, dict)
+            (boolean_grid, voxel2atom) where boolean_grid is a 3D numpy array
+            and voxel2atom is a dict mapping voxel positions to atom indices.
         """
         if not self._no_mapping:
             # Need universe-wide mapping, but grid only for atomgroup
@@ -383,42 +731,91 @@ class Containment(ContainmentBase):
 
 class ContainmentView(ContainmentBase):
     """
-    A view on a Containment that merges unspecified nodes with their parents.
+    Memory-efficient view on a Containment with merged nodes.
     
-    This provides the same API as Containment but operates on a view of the
-    underlying VoxelContainment. The voxel2atom mapping and atomgroup references
-    are shared with the base Containment for memory efficiency.
+    A ContainmentView provides the same API as Containment but operates on a
+    filtered or simplified version of the hierarchy. Nodes not in the view are
+    merged upstream to their nearest kept ancestor, creating a coarser hierarchy
+    while preserving the containment relationships.
+    
+    Views share all underlying data (voxel grids, atom mappings) with the base
+    Containment for memory efficiency. The original Containment remains unchanged.
     
     Parameters
     ----------
     base_containment : Containment
-        The base Containment object to create a view on.
-    keep_nodes : list or set
-        Nodes to keep visible in the view. Other nodes are merged upstream
-        to their nearest kept ancestor. If no ancestor is kept, the node is dropped.
+        The Containment object to create a view on.
+    keep_nodes : list or set of int
+        Node IDs to keep visible in the view. Other nodes are merged upstream
+        to their nearest kept ancestor. Nodes without a kept ancestor are dropped.
+    
+    Attributes
+    ----------
+    voxel_containment : VoxelContainmentView
+        The underlying view on the voxel containment graph.
     
     Examples
     --------
+    Create a simplified view:
+    
     >>> containment = Containment(atomgroup, resolution=0.5)
-    >>> # Remove small compartments (nodes B, D, E)
-    >>> view = containment.node_view([A, C, F])
-    >>> # Now can work with simplified structure
-    >>> atoms = view.get_atomgroup_from_nodes([A])  # Includes merged nodes
+    >>> print(containment.nodes)  # [1, 2, 3, 4, 5, 6]
+    >>> 
+    >>> # Keep only nodes 1, 3, 6
+    >>> view = containment.node_view([1, 3, 6])
+    >>> print(view.nodes)  # [1, 3, 6]
+    
+    Work with the view:
+    
+    >>> # Nodes 2, 4, 5 are merged into their kept ancestors
+    >>> atoms = view.get_atomgroup_from_nodes([1])  # Includes merged nodes
+    >>> print(view)  # Shows simplified hierarchy
+    
+    Track merged nodes:
+    
+    >>> # See which original nodes are in view node 1
+    >>> originals = view.get_original_nodes(1)
+    >>> print(f"View node 1 contains original nodes: {originals}")
+    >>> 
+    >>> # Check where an original node ended up
+    >>> view_node = view.get_view_node(2)  # Returns the ancestor it merged into
+    
+    Original is unchanged:
+    
+    >>> print(containment.nodes)  # Still [1, 2, 3, 4, 5, 6]
+    
+    Notes
+    -----
+    - Views always reference the original base Containment, not intermediate views
+    - Multiple views can exist simultaneously on the same base Containment
+    - All atom operations work identically on views and original containments
+    - Volume calculations include merged nodes automatically
+    
+    See Also
+    --------
+    Containment.node_view : Convenient method to create views
+    get_original_nodes : Track which nodes were merged
+    get_view_node : Find where an original node is in the view
     """
     
-    def __init__(self, base_containment, keep_nodes):
+    def __init__(
+        self, 
+        base_containment: Containment, 
+        keep_nodes: Union[List[int], Set[int]]
+    ) -> None:
         # Store reference to the base Containment (the data owner)
         self._base = base_containment._base
         
         # Create the VoxelContainment view - this does the heavy lifting
         self.voxel_containment = self._base.voxel_containment.node_view(keep_nodes)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a concise string representation."""
         return f'<ContainmentView with {len(self.universe.atoms)} atoms in a {self.voxel_containment.grid.shape} grid with a resolution of {self.resolution} nm>'
     
-    def get_original_nodes(self, view_node):
+    def get_original_nodes(self, view_node: int) -> List[int]:
         """
-        Get all original nodes that are merged into a view node.
+        Get all original nodes merged into a view node.
         
         Parameters
         ----------
@@ -427,12 +824,23 @@ class ContainmentView(ContainmentBase):
         
         Returns
         -------
-        list
-            List of original node IDs merged into this view node.
+        list of int
+            Original node IDs that are merged into this view node.
+        
+        Examples
+        --------
+        >>> view = containment.node_view([1, 5])
+        >>> originals = view.get_original_nodes(1)
+        >>> print(f"View node 1 contains: {originals}")
+        # Might output: [1, 2, 3] if nodes 2 and 3 were merged into 1
+        
+        See Also
+        --------
+        get_view_node : Reverse lookup from original to view node.
         """
         return self.voxel_containment.get_original_nodes(view_node)
     
-    def get_view_node(self, original_node):
+    def get_view_node(self, original_node: int) -> Optional[int]:
         """
         Get the view node that an original node is mapped to.
         
@@ -444,6 +852,18 @@ class ContainmentView(ContainmentBase):
         Returns
         -------
         int or None
-            The view node ID, or None if the original node was dropped.
+            The view node ID that contains this original node, or None if
+            the original node was dropped (no kept ancestor).
+        
+        Examples
+        --------
+        >>> view = containment.node_view([1, 5])
+        >>> view_node = view.get_view_node(3)
+        >>> # Might output: 1, if the original node 3 was merged into node 1 upon 
+        >>> # making the view, due to it being downstream of 1.
+        
+        See Also
+        --------
+        get_original_nodes : Reverse lookup from view to original nodes.
         """
-        return self.voxel_containment.get_view_node(original_node)
+        return self.voxel_containment.get_view_node(original_node)</parameter>
