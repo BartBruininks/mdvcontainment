@@ -111,7 +111,7 @@ def _voxelate_atomgroup(atomgroup, resolution, max_offset=0.05):
 
     Parameters
     ----------
-    atomgroup: MDAnalysis AtomGroup
+    atomgroup: MDAnalysis.AtomGroup
         The atomgroup to voxelate.
     resolution: float
         The target resolution in nm.
@@ -181,7 +181,7 @@ def create_voxels(atomgroup, resolution, max_offset=0.05, return_mapping=True):
     
     Parameters
     ----------
-    atomgroup: MDAnalysis AtomGroup
+    atomgroup: MDAnalysis.AtomGroup
         The atomgroup to voxelate.
     resolution: float
         The target resolution in nm.
@@ -225,12 +225,12 @@ def voxels2atomgroup(voxels, mapping, atomgroup):
     mapping: dict from create_voxels containing:
         - 'voxel_to_atoms': dict mapping voxel (x,y,z) tuple -> atom position indices
         - 'atom_indices': original atom indices
-    atomgroup: MDAnalysis AtomGroup
+    atomgroup: MDAnalysis.AtomGroup
         The original atomgroup from which the mapping was created.
     
     Returns
     -------
-    atomgroup: MDAnalysis AtomGroup
+    atomgroup: MDAnalysis.AtomGroup
         The atomgroup corresponding to the provided voxel positions.
     """
     voxels_array = np.asarray(voxels, dtype=np.int32)

@@ -542,7 +542,7 @@ class Containment(ContainmentBase):
         verbose: bool = False, 
         no_mapping: bool = False
     ) -> None:
-        assert isinstance(atomgroup, mda.core.groups.AtomGroup), "Atomgroup must be an MDAnalysis AtomGroup."
+        assert isinstance(atomgroup, mda.core.groups.AtomGroup), "Atomgroup must be an MDAnalysis.AtomGroup."
         assert type(resolution) in [float, int], "Resolution must be a float or int."
         assert type(closing) == bool, "Closing must be a boolean."
         assert type(morph) == str, "Morph must be a string."

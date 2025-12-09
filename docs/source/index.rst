@@ -43,7 +43,7 @@ Notes
 -----
 The module uses nanometer (nm) units for lengths and volumes. MDAnalysis 
 atomgroups using Angstrom units are automatically converted internally.
-"""
+
 
 .. toctree::
    :maxdepth: 2
