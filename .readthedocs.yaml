@@ -23,7 +23,7 @@ sphinx:
 python:
   install:
     # Install your documentation dependencies
-    - requirements: requirements.txt
+    - requirements: docs/requirements.txt
     # Install your package itself in editable mode
     - method: pip
       path: .
