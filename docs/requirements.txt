@@ -2,6 +2,7 @@ sphinx
 sphinx-rtd-theme
 myst-parser
 # Your project's external dependencies (e.g., those in setup.cfg/pyproject.toml)
+cython
 numpy
 mdanalysis
 networkx
