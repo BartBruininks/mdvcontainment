@@ -1,6 +1,5 @@
 sphinx
 sphinx-rtd-theme
-sphinx-napoleon
 myst-parser
 # Your project's external dependencies (e.g., those in setup.cfg/pyproject.toml)
 numpy
