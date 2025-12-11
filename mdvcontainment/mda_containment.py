@@ -45,7 +45,7 @@ class ContainmentBase(ABC):
             self.voxel_containment.containment_graph, 
             self.voxel_containment.component_ranks, 
             self.voxel_volumes, 
-            unit='nm^3')
+            unit='nm³')
     
     # Properties - all delegate to _base for data access
 
@@ -537,15 +537,15 @@ class Containment(ContainmentBase):
         atomgroup: mda.AtomGroup, 
         resolution: Union[float, int], 
         closing: bool = False, 
-        morph: str = "", 
+        morph: str|None = None, 
         max_offset: Union[float, int] = 0.05, 
         verbose: bool = False, 
         no_mapping: bool = False
     ) -> None:
-        assert isinstance(atomgroup, mda.core.groups.AtomGroup), "Atomgroup must be an MDAnalysis.AtomGroup."
+        assert isinstance(atomgroup, mda.core.groups.AtomGroup), "AtomGroup must be an MDAnalysis.AtomGroup."
         assert type(resolution) in [float, int], "Resolution must be a float or int."
         assert type(closing) == bool, "Closing must be a boolean."
-        assert type(morph) == str, "Morph must be a string."
+        assert type(morph) == type(None) or type(morph) == str, "Morph must be a string or None."
         assert set(morph).issubset({'d', 'e'}), "Morph strings can only contain 'd' and 'e' characters."
         assert type(max_offset) in [float, int], "Max_offset must be a float or int."
         assert type(verbose) == bool, "Verbose must be a boolean."

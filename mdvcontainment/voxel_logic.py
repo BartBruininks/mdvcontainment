@@ -3,67 +3,99 @@ Mapping atoms to and from voxels, taking MDAnalysis.Atomgroups as the atomic rep
 """
 
 # Python
-from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union
 
 # Python External
 import numpy as np
+import numpy.typing as npt
 import MDAnalysis as mda
 
 # Cython Module
 from .atoms_voxels_mapping import create_efficient_mapping_cy, voxels2atomgroup_cy
 
 
-def dim2lattice(x, y, z, alpha=90, beta=90, gamma=90):
-    """Convert dimensions (lengths/angles) to lattice matrix.
+def dim2lattice(
+    x: float,
+    y: float,
+    z: float,
+    alpha: float = 90.0,
+    beta: float = 90.0,
+    gamma: float = 90.0
+) -> npt.NDArray[np.float64]:
+    """
+    Convert unit cell dimensions to a lattice matrix representation.
 
     Parameters
     ----------
-    x, y, z : float
-        Lengths of the unit cell edges.
-    alpha, beta, gamma : float, optional
-        Angles between the edges in degrees. Default is 90 degrees.
+    x : float
+        Length of the first unit cell edge (Angstroms).
+    y : float
+        Length of the second unit cell edge (Angstroms).
+    z : float
+        Length of the third unit cell edge (Angstroms).
+    alpha : float, default=90.0
+        Angle between y and z edges (degrees).
+    beta : float, default=90.0
+        Angle between x and z edges (degrees).
+    gamma : float, default=90.0
+        Angle between x and y edges (degrees).
     
     Returns
     -------
-    box : 3x3 numpy array
-        The box matrix representing the unit cell.
+    np.ndarray
+        3×3 box matrix representing the unit cell in Angstroms.
+    
+    Notes
+    -----
+    The returned matrix follows the convention where the first row is along x,
+    the second row is in the xy-plane, and the third row completes the cell.
     """
-    cosa = np.cos( np.pi * alpha / 180 )
-    cosb = np.cos( np.pi * beta / 180 )
-    cosg = np.cos( np.pi * gamma / 180 )
-    sing = np.sin( np.pi * gamma / 180 )
+    cosa = np.cos(np.pi * alpha / 180)
+    cosb = np.cos(np.pi * beta / 180)
+    cosg = np.cos(np.pi * gamma / 180)
+    sing = np.sin(np.pi * gamma / 180)
 
     zx = z * cosb
-    zy = z * ( cosa - cosb * cosg ) / sing
-    zz = np.sqrt( z**2 - zx**2 - zy**2 )
+    zy = z * (cosa - cosb * cosg) / sing
+    zz = np.sqrt(z**2 - zx**2 - zy**2)
 
-    return np.array([x, 0, 0, y * cosg, y * sing, 0, zx, zy, zz]).reshape((3,3))
+    return np.array([x, 0, 0, y * cosg, y * sing, 0, zx, zy, zz]).reshape((3, 3))
 
-def linear_blur(array, box, span, inplace=True):
+
+def linear_blur(
+    array: npt.NDArray,
+    box: npt.NDArray[np.float64],
+    span: int,
+    inplace: bool = True
+) -> npt.NDArray:
     """
-    Perform linear blurring of an array by rolling
-    over x, y, and z directions, for each value 
-    up to span. If inplace is True, the rolled 
-    array is always the target array, causing
-    a full blur.
+    Apply linear blurring to a 3D array with periodic boundary conditions.
     
+    This function performs a rolling average by shifting the array in each direction
+    (x, y, z) up to the specified span, accounting for the triclinic box geometry.
+
     Parameters
     ----------
-    array: 3D numpy array
-        The array to be blurred.
-    box: 3x3 numpy array
-        The box matrix for PBC handling.
-    span: int
-        The number of voxels to blur over in each direction.
-    inplace: bool, optional
-        Whether to perform the blurring in place. Default is True.
+    array : np.ndarray
+        3D array to be blurred.
+    box : np.ndarray
+        3×3 box matrix for proper periodic boundary condition handling.
+    span : int
+        Number of voxels to include in each direction for blurring.
+    inplace : bool, default=True
+        If True, performs cumulative blurring where each rolled array
+        is the current blurred state. If False, always rolls the original array.
 
     Returns
     -------
-    blurred: 3D numpy array
-        The blurred array.
+    np.ndarray
+        Blurred 3D array with the same shape as input.
+    
+    Notes
+    -----
+    The box matrix is assumed to be lower triangular, which affects how
+    shifts are applied in y and z directions to maintain periodicity.
     """
-
     blurred = np.copy(array)
 
     if inplace:
@@ -71,7 +103,7 @@ def linear_blur(array, box, span, inplace=True):
     else:
         other = array
         
-    for shift in range(1, span+1):
+    for shift in range(1, span + 1):
         # The box matrix is triangular
         
         # ... so a roll over x is just okay
@@ -79,68 +111,86 @@ def linear_blur(array, box, span, inplace=True):
         blurred += np.roll(other, -shift, axis=0)
         
         # ... but a roll over y may have an x-shift
-        #
-        xshift = shift * box[1, 0]
-        rolled = np.roll(other,  shift, 1)
+        xshift = int(shift * box[1, 0])
+        rolled = np.roll(other, shift, 1)
         rolled[:, 0, :] = np.roll(rolled[:, 0, :], -xshift, 0)
         blurred += rolled
-        #
+        
         rolled = np.roll(other, -shift, 1)
         rolled[:, -1, :] = np.roll(rolled[:, -1, :], xshift, 0)
         blurred += rolled
         
-        # .. and a roll over z may have an x- and a y-shift
-        #
-        xyshift = shift * box[2, :2]
-        rolled = np.roll(other,  shift, 2)
+        # ... and a roll over z may have an x- and a y-shift
+        xyshift = (shift * box[2, :2]).astype(int)
+        rolled = np.roll(other, shift, 2)
         rolled[:, :, 0] = np.roll(rolled[:, :, 0], xyshift, (0, 1))
         blurred += rolled
-        #
+        
         rolled = np.roll(other, -shift, 2)
         rolled[:, :, -1] = np.roll(rolled[:, :, -1], -xyshift, (0, 1))
         blurred += rolled
+        
     return blurred
 
-def _voxelate_atomgroup(atomgroup, resolution, max_offset=0.05):
+
+def _voxelate_atomgroup(
+    atomgroup: mda.AtomGroup,
+    resolution: float,
+    max_offset: Union[float, bool] = 0.05
+) -> Tuple[npt.NDArray[np.int32], npt.NDArray[np.int32]]:
     """
-    Takes an atomgroup and bins it as close to the resolution as
-    possible. If the offset of the actual resolution in at least one
-    dimension is more than by default 5%, the function will stop and
-    return an error specifying the actual offset in all dimensions
-    plus the frame in which the mapping error occurred.
+    Convert atomgroup positions to voxel indices at specified resolution.
+    
+    Bins atoms into voxels as close to the target resolution as possible.
+    Raises an error if the actual resolution deviates too much from the target.
 
     Parameters
     ----------
-    atomgroup: MDAnalysis.AtomGroup
+    atomgroup : mda.AtomGroup
         The atomgroup to voxelate.
-    resolution: float
-        The target resolution in nm.
-    max_offset: float, optional
-        The maximum allowed offset from the target resolution in any dimension
-        as a fraction of the target resolution. Default is 0.05 (5%). 
+    resolution : float
+        Target voxel resolution (nm).
+    max_offset : float or bool, default=0.05
+        Maximum allowed fractional deviation from target resolution.
+        If True, checks are enabled with default 5% tolerance.
+        If float, uses that value as the tolerance threshold.
+
+    Returns
+    -------
+    voxels : np.ndarray
+        (N, 3) array of voxel indices for each atom.
+    nbox : np.ndarray
+        3×3 diagonal matrix containing the number of voxels in each dimension.
+    
+    Raises
+    ------
+    ValueError
+        If resolution deviation exceeds max_offset in any dimension.
+    
+    Notes
+    -----
+    Atom positions are modified in-place to snap to voxel centers.
     """
-    check = max_offset == True
+    check = max_offset is True
     resolution = abs(resolution)
 
     box = dim2lattice(*atomgroup.dimensions)
     # The 10 is for going from nm to Angstrom
-    nbox = (box / (10 * resolution)).round().astype(int) # boxels
-    unit = np.linalg.inv(nbox) @ box                     # voxel shape
+    nbox = (box / (10 * resolution)).round().astype(int)  # boxels
+    unit = np.linalg.inv(nbox) @ box  # voxel shape
     deviation = (0.1 * (unit**2).sum(axis=1)**0.5 - resolution) / resolution
 
-    # check for scaling artifacts
+    # Check for scaling artifacts
     if check and (np.abs(deviation) > max_offset).any():
         raise ValueError(
-            'A scaling artifact has occurred of more than {}% '
-            'deviation from the target resolution in frame {} was '
-            'detected. You could consider increasing the '
-            'resolution.'.format(max_offset,
-            atomgroup.universe.trajectory.frame)
+            f'A scaling artifact of more than {max_offset * 100}% deviation '
+            f'from the target resolution was detected in frame '
+            f'{atomgroup.universe.trajectory.frame}. Consider increasing the resolution.'
         )
 
-    transform = np.linalg.inv(box) @ nbox                 # transformation to voxel indices
-    fraxels = atomgroup.positions @ transform         
-    voxels = np.floor(fraxels).astype(int)
+    transform = np.linalg.inv(box) @ nbox  # transformation to voxel indices
+    fraxels = atomgroup.positions @ transform
+    voxels = np.floor(fraxels).astype(np.int32)
     fraxels -= voxels
     
     # Put everything in brick at origin
@@ -153,20 +203,27 @@ def _voxelate_atomgroup(atomgroup, resolution, max_offset=0.05):
         
     return voxels, nbox
 
-def _create_efficient_mapping(voxels, atom_indices):
+
+def _create_efficient_mapping(
+    voxels: npt.NDArray[np.int32],
+    atom_indices: npt.NDArray[np.int64]
+) -> Dict[str, Union[npt.NDArray, Dict]]:
     """
-    Creates a memory-efficient mapping structure using hash-based indexing.
+    Create a memory-efficient hash-based mapping from voxels to atoms.
     
     Parameters
     ----------
-    voxels: (N, 3) array of voxel coordinates per atom
-    atom_indices: (N,) array of atom indices
+    voxels : np.ndarray
+        (N, 3) array of voxel coordinates for each atom.
+    atom_indices : np.ndarray
+        (N,) array of atom indices.
     
     Returns
     -------
-    mapping: dict containing:
+    dict
+        Mapping dictionary containing:
         - 'atom_voxels': (N, 3) array mapping each atom to its voxel coords
-        - 'voxel_to_atoms': dict mapping voxel coords (as tuple) -> array of atom indices
+        - 'voxel_to_atoms': dict mapping voxel (x,y,z) tuple to atom indices array
         - 'atom_indices': original atom indices array
     """
     # Ensure correct dtypes
@@ -175,29 +232,48 @@ def _create_efficient_mapping(voxels, atom_indices):
     
     return create_efficient_mapping_cy(voxels, atom_indices)
 
-def create_voxels(atomgroup, resolution, max_offset=0.05, return_mapping=True):
+
+def create_voxels(
+    atomgroup: mda.AtomGroup,
+    resolution: float,
+    max_offset: Union[float, bool] = 0.05,
+    return_mapping: bool = True
+) -> Tuple[npt.NDArray[np.bool_], Optional[Dict]]:
     """
-    Takes an atomgroup and bins it as close to the resolution as possible.
+    Convert an atomgroup into a voxelized boolean occupancy grid.
     
+    Creates a 3D boolean array where True indicates voxel occupancy by atoms,
+    optionally returning a mapping structure for reverse lookup.
+
     Parameters
     ----------
-    atomgroup: MDAnalysis.AtomGroup
+    atomgroup : mda.AtomGroup
         The atomgroup to voxelate.
-    resolution: float
-        The target resolution in nm.
-    max_offset: float, optional
-        The maximum allowed offset from the target resolution in any dimension
-        as a fraction of the target resolution. Default is 0.05 (5%).
-    return_mapping: bool, optional
-        Whether to return the mapping from voxels to atoms. Default is True.
+    resolution : float
+        Target voxel resolution (nm).
+    max_offset : float or bool, default=0.05
+        Maximum allowed fractional deviation from target resolution (5% default).
+    return_mapping : bool, default=True
+        Whether to return the voxel-to-atom mapping structure.
     
     Returns
     -------
-    voxels: boolean 3D array of voxel occupancy
-    mapping: dict with keys:
-        - 'atom_clusters': (n_atoms,) array mapping each atom to its voxel cluster ID
-        - 'cluster_indices': dict mapping voxel cluster ID to array of atom positions
-        - 'cluster_coords': dict mapping voxel cluster ID to (x,y,z) voxel coordinates
+    voxels : np.ndarray
+        Boolean 3D array indicating voxel occupancy.
+    mapping : dict or None
+        If return_mapping=True, contains:
+        - 'atom_voxels': (N, 3) array mapping each atom to voxel coordinates
+        - 'voxel_to_atoms': dict mapping voxel tuple to atom indices
+        - 'atom_indices': original atom indices from atomgroup
+        If return_mapping=False, returns None.
+    
+    Examples
+    --------
+    >>> import MDAnalysis as mda
+    >>> u = mda.Universe("protein.pdb")
+    >>> voxels, mapping = create_voxels(u.atoms, resolution=0.5)
+    >>> print(f"Grid shape: {voxels.shape}")
+    >>> print(f"Occupied voxels: {voxels.sum()}")
     """
     voxels, nbox = _voxelate_atomgroup(atomgroup, resolution, max_offset=max_offset)
     x, y, z = voxels.T
@@ -213,25 +289,40 @@ def create_voxels(atomgroup, resolution, max_offset=0.05, return_mapping=True):
     else:
         return explicit, None
 
-def voxels2atomgroup(voxels, mapping, atomgroup):
+
+def voxels2atomgroup(
+    voxels: npt.NDArray[np.int32],
+    mapping: Dict[str, Union[npt.NDArray, Dict]],
+    atomgroup: mda.AtomGroup
+) -> mda.AtomGroup:
     """
-    Returns an atomgroup corresponding to specified voxels.
-    Uses hash-based lookup instead of memory-intensive broadcasting.
+    Convert voxel coordinates back to their corresponding atoms.
     
+    Uses hash-based lookup for efficient reverse mapping from voxels to atoms.
+
     Parameters
     ----------
-    voxels: array-like of shape (M, 3)
-        Voxel positions to convert back to atoms.
-    mapping: dict from create_voxels containing:
-        - 'voxel_to_atoms': dict mapping voxel (x,y,z) tuple -> atom position indices
+    voxels : array-like
+        (M, 3) array of voxel coordinates to look up.
+    mapping : dict
+        Mapping structure from create_voxels containing:
+        - 'voxel_to_atoms': dict mapping (x,y,z) tuples to atom indices
         - 'atom_indices': original atom indices
-    atomgroup: MDAnalysis.AtomGroup
-        The original atomgroup from which the mapping was created.
+    atomgroup : mda.AtomGroup
+        Original atomgroup used to create the mapping.
     
     Returns
     -------
-    atomgroup: MDAnalysis.AtomGroup
-        The atomgroup corresponding to the provided voxel positions.
+    mda.AtomGroup
+        Atomgroup containing all atoms located in the specified voxels.
+        Returns an empty atomgroup if no atoms are found.
+    
+    Examples
+    --------
+    >>> voxels, mapping = create_voxels(protein, resolution=0.5)
+    >>> occupied = np.argwhere(voxels)
+    >>> atoms = voxels2atomgroup(occupied, mapping, protein)
+    >>> print(f"Retrieved {len(atoms)} atoms")
     """
     voxels_array = np.asarray(voxels, dtype=np.int32)
     voxel_to_atoms = mapping['voxel_to_atoms']
@@ -249,60 +340,101 @@ def voxels2atomgroup(voxels, mapping, atomgroup):
     
     return atomgroup.universe.atoms[selected_atom_indices]
 
-def dilate_voxels(voxels):
+
+def dilate_voxels(voxels: npt.NDArray[np.bool_]) -> npt.NDArray[np.bool_]:
     """
-    Dilates in place.
+    Dilate voxel occupancy by expanding occupied regions outward.
+    
+    Performs morphological dilation by one voxel in all directions,
+    effectively growing the occupied regions.
 
     Parameters
     ----------
-    voxels: boolean 3D array of voxel occupancy
+    voxels : np.ndarray
+        Boolean 3D array of voxel occupancy.
 
     Returns
     -------
-    voxels: boolean 3D array of voxel occupancy after dilation
+    np.ndarray
+        Boolean 3D array after dilation operation.
+    
+    Notes
+    -----
+    The operation is performed in-place on a copy of the input array.
     """
     nbox = np.diag(voxels.shape)
-    # Possible dilation and erosion to remove small holes for CG data.
     voxels = linear_blur(voxels, nbox, 1)
     voxels = voxels.astype(bool)
     return voxels
 
-def erode_voxels(voxels):
+
+def erode_voxels(voxels: npt.NDArray[np.bool_]) -> npt.NDArray[np.bool_]:
     """
-    Erodes in place.
+    Erode voxel occupancy by shrinking occupied regions inward.
+    
+    Performs morphological erosion by one voxel in all directions,
+    effectively removing the outer layer of occupied regions.
 
     Parameters
     ----------
-    voxels: boolean 3D array of voxel occupancy
+    voxels : np.ndarray
+        Boolean 3D array of voxel occupancy.
 
     Returns
     -------
-    voxels: boolean 3D array of voxel occupancy after erosion
+    np.ndarray
+        Boolean 3D array after erosion operation.
+    
+    Notes
+    -----
+    The operation is performed in-place on a copy of the input array.
     """
     nbox = np.diag(voxels.shape)
-    # Possible dilation and erosion to remove small holes for CG data.
     voxels = linear_blur(~voxels, nbox, 1)
     voxels = ~voxels
     return voxels
 
-def morph_voxels(voxels, morph_str='de'):
-    """
-    Morphs the voxels by sequentially applying dilations and or erosions
-    as specified by the morph string.
 
-    Example (closing): 'de' means dilation followed by erosion.
-    Example (opening): 'ed' means erosion followed by dilation.
+def morph_voxels(
+    voxels: npt.NDArray[np.bool_],
+    morph_str: str = 'de'
+) -> npt.NDArray[np.bool_]:
+    """
+    Apply a sequence of morphological operations to voxel occupancy.
+    
+    Sequentially applies dilation and/or erosion operations as specified
+    by the morph string. Common patterns include closing ('de') to fill
+    small holes and opening ('ed') to remove small protrusions.
 
     Parameters
     ----------
-    voxels: boolean 3D array of voxel occupancy
-    morph_str: str
-        String specifying the morph operations to apply.
-        'd' for dilation, 'e' for erosion.
+    voxels : np.ndarray
+        Boolean 3D array of voxel occupancy.
+    morph_str : str, default='de'
+        String specifying the sequence of operations:
+        - 'd' for dilation (expand occupied regions)
+        - 'e' for erosion (shrink occupied regions)
    
     Returns
     -------
-    voxels: boolean 3D array of voxel occupancy after morphing
+    np.ndarray
+        Boolean 3D array after applying all morphological operations.
+    
+    Raises
+    ------
+    ValueError
+        If morph_str contains characters other than 'd' or 'e'.
+    
+    Examples
+    --------
+    >>> # Closing operation (fill small holes)
+    >>> closed = morph_voxels(voxels, 'de')
+    >>> 
+    >>> # Opening operation (remove small protrusions)
+    >>> opened = morph_voxels(voxels, 'ed')
+    >>> 
+    >>> # Multiple operations
+    >>> smoothed = morph_voxels(voxels, 'dede')
     """
     for operation in morph_str:
         if operation == 'd':
@@ -310,44 +442,89 @@ def morph_voxels(voxels, morph_str='de'):
         elif operation == 'e':
             voxels = erode_voxels(voxels)
         else:
-            raise ValueError(f"Unknown morph operation '{operation}' in morph string '{morph_str}'. Use 'd' for dilation and 'e' for erosion.") 
+            raise ValueError(
+                f"Unknown morph operation '{operation}' in morph string '{morph_str}'. "
+                f"Use 'd' for dilation and 'e' for erosion."
+            )
     return voxels
 
-def close_voxels(voxels):
-    """Closes the voxels by performing a dilation followed by an erosion."""
-    return morph_voxels(voxels, morph_str='de')
 
-def voxels_to_universe(
-    arr: np.array,
-    scale: float = 1.0,
-    place_in_center: bool = True,
-    universe: mda.Universe = None,
-    nodes: list = None,
-) -> mda.Universe:
+def close_voxels(voxels: npt.NDArray[np.bool_]) -> npt.NDArray[np.bool_]:
     """
-    Coverts the (selected) nodes in the voxel array into an MDA.Universe.
+    Close voxel occupancy by filling small holes and gaps.
+    
+    Performs morphological closing (dilation followed by erosion) to
+    fill small holes while preserving the overall structure size.
 
     Parameters
     ----------
-    arr : np.array(int)
-        A labeled voxel array (int or bool).
-    scale : float
-        The scaling applied to the voxel indices to convert them to positions.
-    universe : MDAnalysis.Universe
-        A universe to inherit scaling from based on its dimensions.
-    nodes : list(int)
-        A (sub)selection of nodes to add to the created universe.
+    voxels : np.ndarray
+        Boolean 3D array of voxel occupancy.
+    
+    Returns
+    -------
+    np.ndarray
+        Boolean 3D array after closing operation.
+    
+    Notes
+    -----
+    This is equivalent to calling morph_voxels(voxels, 'de').
+    """
+    return morph_voxels(voxels, morph_str='de')
+
+
+def voxels_to_universe(
+    arr: npt.NDArray[Union[np.int_, np.bool_]],
+    scale: float = 1.0,
+    place_in_center: bool = True,
+    universe: Optional[mda.Universe] = None,
+    nodes: Optional[List[int]] = None,
+) -> mda.Universe:
+    """
+    Convert a labeled voxel array into an MDAnalysis Universe.
+    
+    Creates a Universe where each selected voxel becomes an atom positioned
+    at the voxel coordinates. Useful for visualizing voxel-based analyses.
+
+    Parameters
+    ----------
+    arr : np.ndarray
+        Labeled voxel array (integer or boolean). Each unique value
+        represents a different node/cluster.
+    scale : float, default=1.0
+        Scaling factor applied to voxel indices to get positions (nm).
+        Automatically converted to Angstroms (×10) if no universe provided.
+    place_in_center : bool, default=True
+        If True, positions atoms at voxel centers rather than corners.
+    universe : mda.Universe, optional
+        Reference universe to inherit box dimensions from. If provided,
+        scaling is calculated from universe.dimensions / arr.shape.
+    nodes : list of int, optional
+        Subset of node IDs to include in the output universe.
+        If None, includes all voxels with non-zero values.
 
     Returns
     -------
-    universe : MDAnalysis.Universe
-        The voxel positions as atoms in a universe with their node IDs as atom names.
+    mda.Universe
+        Universe with atoms positioned at voxel coordinates.
+        Atom names correspond to the voxel node IDs from the array.
+    
+    Examples
+    --------
+    >>> # Convert boolean occupancy to universe
+    >>> voxels, _ = create_voxels(protein, resolution=0.5)
+    >>> voxel_universe = voxels_to_universe(voxels.astype(int), scale=0.5)
+    >>> 
+    >>> # Convert labeled clusters, selecting specific nodes
+    >>> cluster_universe = voxels_to_universe(
+    ...     labeled_array, universe=protein, nodes=[1, 2, 3]
+    ... )
     """
     # Optional filtering
     if nodes is not None:
         mask = np.isin(arr, nodes)
         # Keep only positions + values that match
-        filtered_indices = np.array(np.where(mask)).T        # shape (M, 3)
+        filtered_indices = np.array(np.where(mask)).T  # shape (M, 3)
         filtered_values = arr[mask].ravel()
         n_atoms = filtered_indices.shape[0]
     else:
@@ -357,7 +534,7 @@ def voxels_to_universe(
 
     # Scaling
     if universe is None:
-        scale *= 10.0  # Å to nm
+        scale *= 10.0  # nm to Å
         box_scale = scale
     else:
         box_scale = universe.dimensions[:3] / np.array(arr.shape)
@@ -379,11 +556,10 @@ def voxels_to_universe(
 
     # Box dimensions always represent full array volume
     box = np.array(arr.shape) * box_scale
-    u.dimensions = np.array([*box, 90, 90, 90], dtype=np.int32)
+    u.dimensions = np.array([*box, 90, 90, 90], dtype=np.float64)
 
     # Residue/atom names come from array values
     names = [str(v) for v in filtered_values]
     u.add_TopologyAttr("name", names)
     
     return u
-
