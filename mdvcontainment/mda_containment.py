@@ -3,13 +3,13 @@ MDAnalysis level wrapper for containment of AtomGroups, still uses VoxelContainm
 """
 
 # Python
-from abc import ABC
-from typing import Union, List, Set, Dict, Tuple, Optional, TypeAlias, TYPE_CHECKING
+from abc import ABC, abstractmethod
+from typing import Union, List, Set, Dict, Tuple, Optional, TypeAlias, Self, TYPE_CHECKING
 
 # Python External
 import numpy as np
 import numpy.typing as npt
-import MDAnalysis as mda
+import MDAnalysis as mda  # type: ignore
 
 # Python Module
 from .voxel_logic import create_voxels, voxels2atomgroup, morph_voxels
@@ -36,7 +36,7 @@ class ContainmentBase(ABC):
             self.voxel_containment.component_ranks,
             self.voxel_volumes,
             unit='nm³')
-
+    
     # Properties - all delegate to _base for data access
 
     @property
@@ -45,8 +45,8 @@ class ContainmentBase(ABC):
 
     @property
     def voxel_volume(self) -> float:
-        total_volume: float = np.prod(self.universe.dimensions[:3])
-        total_voxels: int = np.prod(self.boolean_grid.shape)
+        total_volume: float = float(np.prod(self.universe.dimensions[:3]))
+        total_voxels: int = int(np.prod(self.boolean_grid.shape))
         return (total_volume / total_voxels) / 1000  # Convert A^3 to nm^3
 
     @property

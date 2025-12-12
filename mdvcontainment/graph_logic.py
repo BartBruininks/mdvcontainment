@@ -129,7 +129,7 @@ def collapse_nodes(
 
 
 def get_subgraphs(
-    nonp_unique_labels: List[int], 
+    nonp_unique_labels: npt.NDArray[np.int_], 
     contact_graph: nx.MultiDiGraph
 ) -> Tuple[List[nx.Graph], List[nx.Graph]]:
     """
@@ -137,7 +137,7 @@ def get_subgraphs(
 
     Parameters
     ----------
-    nonp_unique_labels: list of int
+    nonp_unique_labels: ndarray of int
         The unique non-periodic labels in the contact graph.
     contact_graph: networkx.MultiDiGraph
         The contact graph containing the labels.
@@ -245,7 +245,7 @@ def create_component_contact_graph(
 
 def create_containment_graph(
     is_contained_dict: Dict[int, bool], 
-    unique_components: List[int], 
+    unique_components: npt.NDArray[np.int_], 
     component_contact_graph: nx.Graph
 ) -> nx.MultiDiGraph:
     """
