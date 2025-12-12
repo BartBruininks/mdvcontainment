@@ -2,15 +2,22 @@
 import os
 import sys
 import sphinx_rtd_theme
+from pathlib import Path
 
 # -- Path setup --------------------------------------------------------------
 sys.path.insert(0, os.path.abspath('..'))  # point to your package root
 
+version_file = Path(__file__).resolve().parents[2] / "mdvcontainment" / "_version.py"
+version_dict = {}
+with open(version_file, "r") as f:
+    exec(f.read(), version_dict)
+
+
 # -- Project information -----------------------------------------------------
 project = 'mdvcontainment'
 author = 'BMH Bruininks'
-release = 'v2.0.0'
-version = 'v2.0.0'
+release = version_dict["__version__"]
+version = release
 
 # -- General configuration ---------------------------------------------------
 extensions = [
