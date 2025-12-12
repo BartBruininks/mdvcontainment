@@ -70,17 +70,17 @@ class VoxelContainmentBase(ABC):
     @property
     def nodes(self):
         """All nodes in the current containment graph."""
-        return list(self.containment_graph.nodes)
+        return [int(node) for node in self.containment_graph.nodes]
     
     @property
     def root_nodes(self):
         """Root nodes (nodes with no parents) in the current containment graph."""
-        return [n for n, d in self.containment_graph.in_degree() if d == 0]
+        return [int(n) for n, d in self.containment_graph.in_degree() if d == 0]
     
     @property
     def leaf_nodes(self):
         """Leaf nodes (nodes with no children) in the current containment graph."""
-        return [n for n, d in self.containment_graph.out_degree() if d == 0]
+        return [int(n) for n, d in self.containment_graph.out_degree() if d == 0]
     
     # Helper method for node resolution (override in views)
     

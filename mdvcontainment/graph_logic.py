@@ -28,7 +28,7 @@ def draw_graph(graph: nx.Graph) -> None:
 
 def create_contact_graph(
     contacts: List[Tuple[int, int]], 
-    nodes: npt.NDArray[np.int_],
+    nodes: List[int],
     bridges: Optional[List[Tuple[int, int, int, int, int]]] = None
 ) -> nx.MultiDiGraph:
     """
@@ -38,7 +38,7 @@ def create_contact_graph(
     ----------
     contacts: list of tuples
         The contact edges between nodes.
-    nodes: array-like of int
+    nodes: list of int
         The nodes in the graph.
     bridges: list of tuples, optional
         The bridge edges between nodes with their values.
@@ -129,7 +129,7 @@ def collapse_nodes(
 
 
 def get_subgraphs(
-    nonp_unique_labels: npt.NDArray[np.int_], 
+    nonp_unique_labels: List[int], 
     contact_graph: nx.MultiDiGraph
 ) -> Tuple[List[nx.Graph], List[nx.Graph]]:
     """
@@ -137,7 +137,7 @@ def get_subgraphs(
 
     Parameters
     ----------
-    nonp_unique_labels: array-like
+    nonp_unique_labels: list of int
         The unique non-periodic labels in the contact graph.
     contact_graph: networkx.MultiDiGraph
         The contact graph containing the labels.
@@ -245,7 +245,7 @@ def create_component_contact_graph(
 
 def create_containment_graph(
     is_contained_dict: Dict[int, bool], 
-    unique_components: npt.NDArray[np.int_], 
+    unique_components: List[int], 
     component_contact_graph: nx.Graph
 ) -> nx.MultiDiGraph:
     """
@@ -255,7 +255,7 @@ def create_containment_graph(
     ----------
     is_contained_dict: dict
         The mapping from component id to its is_contained status (True/False).
-    unique_components: array-like of int
+    unique_components: list of int
         The list of unique component ids.
     component_contact_graph: networkx.Graph
         The undirected component level contact graph.
@@ -383,7 +383,7 @@ def calc_containment_graph(
     if verbose:
         print('Calculating non-periodic labels...')
     nonp_labeled_grid: npt.NDArray[np.int32] = label_3d_grid(boolean_grid)
-    nonp_unique_labels: npt.NDArray[np.int_] = np.unique(nonp_labeled_grid)
+    nonp_unique_labels: npt.NDArray[np.int_]= np.unique(nonp_labeled_grid)
 
     # Find all non periodic label contacts
     if verbose:

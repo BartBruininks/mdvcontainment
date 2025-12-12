@@ -50,7 +50,11 @@ def get_compositions(containment: Union[Containment, ContainmentView],
             selector = atomgroup.residues.resnames # can be changed to names as well
         else:
             raise ValueError("Please specify a valid mode ('resnames', 'names' or 'molar')")
-        composition = dict(zip(*np.unique(selector, return_counts=True)))
+        # Get the counts
+        unique, counts = np.unique(selector, return_counts=True)
+        # Create the dict of this node
+        composition = dict(zip(unique.tolist(), counts.astype(int).tolist()))
+        # Add node dict to master dict
         compositions_dict[node] = composition
  
     return compositions_dict
