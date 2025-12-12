@@ -4,7 +4,7 @@ Helper functions for high quality composition analysis and plotting.
 
 # Python 
 from collections import Counter
-from typing import List, Tuple, Dict, Set, Union, Optional, Hashable, Iterable, Any
+from typing import List, Tuple, Dict, Set, Union, Optional, Iterable
 
 # Python Internal
 from .mda_containment import Containment, ContainmentView
