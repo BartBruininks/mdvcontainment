@@ -63,7 +63,7 @@ def create_contact_graph(
         graph.add_edge(int(contact[0]), int(contact[1]), label=str(value), cost=value)
         graph.add_edge(int(contact[1]), int(contact[0]), label=str(value), cost=value)
     
-    if bridges:
+    if bridges is not None:
         for bridge in bridges:
             if 0 in bridge[:2]:
                 continue
