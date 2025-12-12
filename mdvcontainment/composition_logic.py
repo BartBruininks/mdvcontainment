@@ -4,21 +4,29 @@ Helper functions for high quality composition analysis and plotting.
 
 # Python 
 from collections import Counter
+from typing import List, Tuple, Dict, Set, Union, Optional
+
+# Python Internal
+from .mda_containment import Containment, ContainmentView
 
 # Python External
 import numpy as np
+import numpy.typing as npt
+from MDAnalysis.core.universe import Universe # type: ignore
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import matplotlib.colors as mcolors
 try:
-    import ipywidgets as widgets
-    from IPython.display import display
-    import plotly.graph_objs as go
+    import ipywidgets as widgets # type: ignore
+    from IPython.display import display 
+    import plotly.graph_objs as go # type: ignore
 except:
     print('Pywidgets not in current environment, advanced plotting will not work. ($pip install pywidgets).')
 
 
-def get_compositions(containment, mode='resnames'):
+def get_compositions(containment: Union[Containment, ContainmentView], 
+                     mode: str = 'resnames',
+                     ) -> Dict[int, Dict[str, int]]:
     """
     Returns the compositions dict.
 
@@ -40,25 +48,16 @@ def get_compositions(containment, mode='resnames'):
         elif mode == 'molar':
             selector = atomgroup.residues.resnames # can be changed to names as well
         else:
-            raise "Please specify a valid mode ('resnames', 'names' or 'molar')"
+            raise ValueError("Please specify a valid mode ('resnames', 'names' or 'molar')")
         composition = dict(zip(*np.unique(selector, return_counts=True)))
         compositions_dict[node] = composition
+ 
     return compositions_dict
 
-def combine_dicts(dictionaries):
-    """
-    Returns the combined counts in the dictionaries.
-    """
-    # Combine the dictionaries
-    combined_counter = Counter()
-    for dictionary in dictionaries.values():
-        combined_counter.update(dictionary)
-    # Convert back to a regular dictionary if needed
-    return dict(combined_counter)
 
-def get_unique_labels(universe, mode='resnames'):
+def get_unique_labels(universe: Universe, mode: str = 'resnames') -> List[str]:
     """
-    Returns the set of unique labels in the compositions dict.
+    Returns the sorted list of unique labels in the compositions dict.
     """
     # Create a consistent color map for labels
     if mode == 'resnames':
@@ -68,10 +67,12 @@ def get_unique_labels(universe, mode='resnames'):
     elif mode == 'molar':
         unique_labels = set(universe.residues.resnames) 
     else:
-        raise "Please specify a valid mode ('resnames', 'names' or 'molar')"
-    return unique_labels
+        raise ValueError("Please specify a valid mode ('resnames', 'names' or 'molar')")
 
-def get_color_mapping(unique_labels):
+    return sorted(list(unique_labels))
+
+
+def get_color_mapping(unique_labels: List[str]) -> Dict[str, npt.NDArray[np.float64]]:
     """
     Returns a color map, mapping each label to a well separated color.
     """
@@ -81,6 +82,7 @@ def get_color_mapping(unique_labels):
     color_map = {label: colors[i] for i, label in enumerate(sorted(unique_labels))}
 
     return color_map
+
 
 def plot_pie_chart(data, ax, color_map, cutoff=10):
     labels = np.array(list(data.keys()))
@@ -120,6 +122,7 @@ def plot_pie_chart(data, ax, color_map, cutoff=10):
      # Add a legend with a monospaced font
     font_properties = {'family': 'monospace'}
     ax.legend(wedges, legend_labels, title="Labels", loc="center left", bbox_to_anchor=(1.0, 0, 0.5, 1), prop=font_properties)
+
 
 def analyze_composition(containment, mode='names', savefig='compositions.png',
                         dpi=300, show=True, min_label_percent=5, max_display_items=9):
@@ -234,6 +237,7 @@ def analyze_composition(containment, mode='names', savefig='compositions.png',
         plt.show()
 
     return compositions, fig, axs
+
 
 def show_containment_with_composition(containment, 
                                       mode='names',

@@ -4,9 +4,11 @@ Perlin-noise based creation of synthetic labeling data.
 
 # Python External
 import numpy as np
+import numpy.typing as npt
+from typing import Tuple
 
 
-def make_complex_3D(roll=0):
+def make_complex_3D(roll: int = 0):
     """
     Returns and writes the atomgroup for a complex system(3D).
     """
@@ -36,7 +38,10 @@ def make_complex_3D(roll=0):
     voxels = np.roll(voxels, roll, 1)
     return voxels.astype(bool)
 
-def _generate_perlin_noise_3d(shape, res, tileable=(True, True, True), seed=0):
+def _generate_perlin_noise_3d(shape: npt.NDArray[np.int_], 
+                              res: Tuple[int, int, int], 
+                              tileable: Tuple[bool, bool, bool] =(True, True, True), 
+                              seed: int = 0) -> npt.NDArray[np.float64]:
     """
     Returns correlated noise. The res should be all factors of the shape.
     e.g. shape = (10,10,10) --> res = (2, 1, 5)
@@ -90,7 +95,10 @@ def _generate_perlin_noise_3d(shape, res, tileable=(True, True, True), seed=0):
     n1 = (1-t[:,:,:,1])*n01 + t[:,:,:,1]*n11
     return ((1-t[:,:,:,2])*n0 + t[:,:,:,2]*n1)
 
-def create_3d_boolean_grid(shape, true_prob=0.5, res=[2,2,2], seed=0):
+def create_3d_boolean_grid(shape: npt.NDArray[np.int_], 
+                           true_prob: float = 0.5, 
+                           res: Tuple[int, int, int] =(2,2,2), 
+                           seed: int = 0) -> npt.NDArray[np.float64]:
     """Create a 3D boolean grid with the given shape and probability of True values."""
     return (_generate_perlin_noise_3d(shape, res, seed=seed) + 0.5) > true_prob
 

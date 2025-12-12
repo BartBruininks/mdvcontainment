@@ -3,13 +3,14 @@ Graph rank analysis using Eulerian paths and cycle detection.
 """
 import networkx as nx
 import numpy as np
+import numpy.typing as npt
 from typing import List, Tuple, Dict, Set
 
 # Constants
 SINGULAR_VALUE_TOLERANCE = 0.0001
 
 
-def get_path_matrix(graph: nx.MultiGraph, key: str = 'value') -> np.ndarray:
+def get_path_matrix(graph: nx.MultiGraph, key: str = 'value') -> npt.NDArray[np.float64]:
     """
     Returns an array with the edge and edge weight in order of the Eulerian path.
     
@@ -44,7 +45,7 @@ def get_path_matrix(graph: nx.MultiGraph, key: str = 'value') -> np.ndarray:
             path.append((source, sink, weight))
     return np.array(path)
 
-def get_path_node_array(path_matrix: np.ndarray) -> np.ndarray:
+def get_path_node_array(path_matrix: npt.NDArray[np.float64]) -> npt.NDArray[np.int32]:
     """
     Returns an array of nodes in the order they appear in the path.
     
@@ -65,7 +66,7 @@ def get_path_node_array(path_matrix: np.ndarray) -> np.ndarray:
     remaining_nodes = path_matrix[:, 1].tolist()
     return np.array(first_node + remaining_nodes)
 
-def get_path_edge_array(path_matrix: np.ndarray) -> np.ndarray:
+def get_path_edge_array(path_matrix: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     """
     Returns an array of edge weights in the order they appear in the path.
     
@@ -82,7 +83,7 @@ def get_path_edge_array(path_matrix: np.ndarray) -> np.ndarray:
         return np.array([])
     return path_matrix[:, 2:]
 
-def get_cycles(path_matrix: np.ndarray) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+def get_cycles(path_matrix: npt.NDArray[np.float64]) -> Tuple[List[npt.NDArray[np.int32]], List[npt.NDArray[np.float64]]]:
     """
     Detects cycles in the Eulerian path by finding repeated node visits.
     
@@ -121,7 +122,7 @@ def get_cycles(path_matrix: np.ndarray) -> Tuple[List[np.ndarray], List[np.ndarr
         visited[node] = idx 
     return node_cycles, edge_cycles
 
-def get_edge_cycle_matrix(edge_cycles: List[np.ndarray]) -> np.ndarray:
+def get_edge_cycle_matrix(edge_cycles: List[npt.NDArray[np.float64]]) -> npt.NDArray[np.float64]:
     """
     Computes the total displacement vector for each cycle.
     
@@ -140,7 +141,7 @@ def get_edge_cycle_matrix(edge_cycles: List[np.ndarray]) -> np.ndarray:
     cycle_vectors = [np.sum(cycle, axis=0) for cycle in edge_cycles]
     return np.array(cycle_vectors)
 
-def get_rank_from_edge_cycle_matrix(edge_cycle_matrix: np.ndarray) -> int:
+def get_rank_from_edge_cycle_matrix(edge_cycle_matrix: npt.NDArray[np.float64]) -> int:
     """
     Computes the rank using SVD on the cycle displacement matrix.
     
@@ -157,8 +158,8 @@ def get_rank_from_edge_cycle_matrix(edge_cycle_matrix: np.ndarray) -> int:
         return 0
     
     singular_values = np.linalg.svd(edge_cycle_matrix, compute_uv=False)
-    rank = np.sum(singular_values > SINGULAR_VALUE_TOLERANCE)
-    return int(rank)
+    rank: int = int(np.sum(singular_values > SINGULAR_VALUE_TOLERANCE))
+    return rank
 
 def get_rank(graph: nx.MultiGraph, key: str = 'cost') -> int:
     """
@@ -243,6 +244,10 @@ def _compute_complement_rank(
     complement_labels = all_labels - component_labels
     complement_graph = contact_graph.subgraph(complement_labels)
     
+    #TODO Check how the typing works here, for get_rank I am pretty
+    # sure we need a MultiGraph, but here we are just passing graphs.
+    # I am not sure why this is not giving issues. It seems to work just
+    # fine, but it beats me as to why... Take a look into this!
     max_rank = 0
     for component in nx.connected_components(nx.Graph(complement_graph)):
         subgraph = complement_graph.subgraph(component)
