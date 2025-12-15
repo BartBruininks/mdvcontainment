@@ -79,7 +79,7 @@ class ContainmentBase(ABC):
         return self._base._closing
 
     @property
-    def morph(self) -> str:
+    def morph(self) -> Optional[str]:
         return self._base._morph
 
     @property
