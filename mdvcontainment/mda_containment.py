@@ -88,8 +88,8 @@ class ContainmentBase(ABC):
         return self._base._boolean_grid # type: ignore[attr-defined]
 
     @property
-    def voxel2atom(self) -> Dict[VoxelPosition, Set[int]]:
-        return self._base._voxel2atom # type: ignore[attr-defined]
+    def mapping_dicts(self) -> Dict[str, Union[npt.NDArray, Dict]]:
+        return self._base._mapping # type: ignore[attr-defined]
 
     # Shared methods
 
@@ -103,7 +103,7 @@ class ContainmentBase(ABC):
                 "no_mapping is only useful to speed up generating the voxel level containment,\n"
                 "for it does not create breadcrumbs to work its way back to the atomgroup."
             )
-        return voxels2atomgroup(voxels, self.voxel2atom, self.atomgroup)
+        return voxels2atomgroup(voxels, self.mapping_dicts, self.atomgroup)
 
     def get_atomgroup_from_nodes(
         self,
@@ -161,7 +161,7 @@ class ContainmentBase(ABC):
 
         for node in all_nodes:
             voxels: ArrayLike = self.voxel_containment.get_voxel_positions([node]) # type: ignore[attr-defined]
-            selected_atoms: mda.AtomGroup = voxels2atomgroup(voxels, self.voxel2atom, self.universe.atoms)
+            selected_atoms: mda.AtomGroup = voxels2atomgroup(voxels, self.mapping_dicts, self.universe.atoms)
             if len(selected_atoms) > 0:
                 betafactors[selected_atoms.ix] = node
 
@@ -222,9 +222,9 @@ class Containment(ContainmentBase):
         self._negative_atomgroup: mda.AtomGroup = self._universe.atoms - self._atomgroup
 
         self._boolean_grid: NDArrayBool
-        self._voxel2atom: Dict[VoxelPosition, Set[int]]
+        self._mapping: Dict[str, Union[npt.NDArray, Dict]]
         
-        self._boolean_grid, self._voxel2atom = self._voxelize_atomgroup()
+        self._boolean_grid, self._mapping = self._voxelize_atomgroup()
 
         self.voxel_containment: VoxelContainment = VoxelContainment(self._boolean_grid, verbose=self._verbose)
         self._base: Self = self
@@ -232,21 +232,21 @@ class Containment(ContainmentBase):
     def __repr__(self) -> str:
         return f'<Containment with {len(self.universe.atoms)} atoms in a {self.voxel_containment.grid.shape} grid with a resolution of {self.resolution} nm>'
 
-    def _voxelize_atomgroup(self) -> Tuple[NDArrayBool, Dict[VoxelPosition, Set[int]]]:
+    def _voxelize_atomgroup(self) -> Tuple[NDArrayBool, Dict[str, Union[npt.NDArray, Dict]]]:
         if not self._no_mapping:
-            grid, voxel2atom = create_voxels(
+            grid, mapping = create_voxels(
                 self._universe.atoms, self._resolution, max_offset=self._max_offset, return_mapping=True)
             grid, _ = create_voxels(
                 self._atomgroup, self._resolution, max_offset=self._max_offset, return_mapping=False)
         else:
-            grid, voxel2atom = create_voxels(
+            grid, mapping = create_voxels(
                 self._atomgroup, self._resolution, max_offset=self._max_offset, return_mapping=False)
 
         if self._closing:
             grid = morph_voxels(grid, 'de')
         if self._morph:
             grid = morph_voxels(grid, self._morph)
-        return grid, voxel2atom
+        return grid, mapping
 
 class ContainmentView(ContainmentBase):
     """
