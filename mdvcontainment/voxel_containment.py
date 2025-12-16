@@ -188,7 +188,7 @@ class VoxelContainmentBase(ABC):
         """
         mask = self.get_voxel_mask(nodes)
         indices = np.where(mask)
-        return np.array(indices).T
+        return np.array(indices).T.astype(np.int32)
     
     def get_universe_from_nodes(self, nodes=None, universe=None):
         """

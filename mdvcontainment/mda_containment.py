@@ -10,6 +10,7 @@ from typing import Union, List, Set, Dict, Tuple, Optional, TypeAlias, Self, TYP
 import numpy as np
 import numpy.typing as npt
 import MDAnalysis as mda  # type: ignore
+from MDAnalysis.core.topologyattrs import Tempfactors
 
 
 # Python Module
@@ -88,7 +89,7 @@ class ContainmentBase(ABC):
         return self._base._boolean_grid # type: ignore[attr-defined]
 
     @property
-    def mapping_dicts(self) -> Dict[str, Union[npt.NDArray, Dict]]:
+    def mapping_dicts(self) -> Optional[Dict[str, Union[npt.NDArray, Dict]]]:
         return self._base._mapping # type: ignore[attr-defined]
 
     # Shared methods
@@ -103,6 +104,8 @@ class ContainmentBase(ABC):
                 "no_mapping is only useful to speed up generating the voxel level containment,\n"
                 "for it does not create breadcrumbs to work its way back to the atomgroup."
             )
+
+        assert self.mapping_dicts is not None, "No mapping available this is probably because `no_mapping` was used."
         return voxels2atomgroup(voxels, self.mapping_dicts, self.atomgroup)
 
     def get_atomgroup_from_nodes(
@@ -120,7 +123,7 @@ class ContainmentBase(ABC):
         if containment:
             nodes = self.voxel_containment.get_downstream_nodes(nodes) # type: ignore[attr-defined]
 
-        voxel_positions: ArrayLike = self.voxel_containment.get_voxel_positions(nodes) # type: ignore[attr-defined]
+        voxel_positions: npt.NDArray[np.int32] = self.voxel_containment.get_voxel_positions(nodes) # type: ignore[attr-defined]
         atomgroup: mda.AtomGroup = self.get_atomgroup_from_voxel_positions(voxel_positions)
         return atomgroup
 
@@ -156,11 +159,16 @@ class ContainmentBase(ABC):
         if self._base._no_mapping: # type: ignore[attr-defined]
             raise ValueError("set_betafactors requires no_mapping='False'.")
 
+        assert self.universe is not None, 'Universe is None.'
+        assert self.universe.atoms is not None, 'Universe.atoms is None.'
+        assert self.mapping_dicts is not None, "No mapping available this is probably because `no_mapping` was used."
+
+
         betafactors: npt.NDArray[np.float64] = np.zeros(len(self.universe.atoms), dtype=np.float64)
         all_nodes: List[int] = self.voxel_containment.nodes # type: ignore[attr-defined]
 
         for node in all_nodes:
-            voxels: ArrayLike = self.voxel_containment.get_voxel_positions([node]) # type: ignore[attr-defined]
+            voxels: npt.NDArray[np.int32] = self.voxel_containment.get_voxel_positions([node]) # type: ignore[attr-defined]
             selected_atoms: mda.AtomGroup = voxels2atomgroup(voxels, self.mapping_dicts, self.universe.atoms)
             if len(selected_atoms) > 0:
                 betafactors[selected_atoms.ix] = node
@@ -175,7 +183,7 @@ class ContainmentBase(ABC):
                 print('NOTE: tempfactors already set in the universe, and will be overwritten with the component ids.')
         except AttributeError:
             self.universe.add_TopologyAttr(
-                mda.core.topologyattrs.Tempfactors(betafactors))
+                Tempfactors(betafactors))
             if is_view:
                 print('Writing VIEW component ids in the tempfactors of universe.')
             else:
@@ -204,6 +212,7 @@ class Containment(ContainmentBase):
         assert isinstance(max_offset, (float, int)), "Max_offset must be a float or int."
         assert isinstance(verbose, bool), "Verbose must be a boolean."
         assert isinstance(no_mapping, bool), "No_mapping must be a boolean."
+        
 
         if closing:
             print("WARNING: The 'closing' parameter is deprecated and will be removed in future versions. Please use the 'morph' parameter with value 'de' instead.")
@@ -222,7 +231,7 @@ class Containment(ContainmentBase):
         self._negative_atomgroup: mda.AtomGroup = self._universe.atoms - self._atomgroup
 
         self._boolean_grid: NDArrayBool
-        self._mapping: Dict[str, Union[npt.NDArray, Dict]]
+        self._mapping: Optional[Dict[str, Union[npt.NDArray, Dict]]]
         
         self._boolean_grid, self._mapping = self._voxelize_atomgroup()
 
@@ -230,9 +239,16 @@ class Containment(ContainmentBase):
         self._base: Self = self
 
     def __repr__(self) -> str:
+        # Tying around universes is a bit messy...
+        assert self.universe is not None, 'Universe is None.'
+        assert self.universe.atoms is not None, 'Universe.atoms is None.'
         return f'<Containment with {len(self.universe.atoms)} atoms in a {self.voxel_containment.grid.shape} grid with a resolution of {self.resolution} nm>'
 
-    def _voxelize_atomgroup(self) -> Tuple[NDArrayBool, Dict[str, Union[npt.NDArray, Dict]]]:
+    def _voxelize_atomgroup(self) -> Tuple[NDArrayBool, Optional[Dict[str, Union[npt.NDArray, Dict]]]]:
+        # Tying around universes is a bit messy...
+        assert self._universe is not None, 'Universe is None.'
+        assert self._universe.atoms is not None, 'Universe.atoms is None.'
+        
         if not self._no_mapping:
             grid, mapping = create_voxels(
                 self._universe.atoms, self._resolution, max_offset=self._max_offset, return_mapping=True)
@@ -262,6 +278,9 @@ class ContainmentView(ContainmentBase):
         self.voxel_containment: VoxelContainmentView = self._base.voxel_containment.node_view(keep_nodes)
 
     def __repr__(self) -> str:
+        # Tying around universes is a bit messy...
+        assert self.universe is not None, 'Universe is None.'
+        assert self.universe.atoms is not None, 'Universe.atoms is None.'
         return f'<ContainmentView with {len(self.universe.atoms)} atoms in a {self.voxel_containment.grid.shape} grid with a resolution of {self.resolution} nm>'
 
     def get_original_nodes(self, view_node: int) -> List[int]:
