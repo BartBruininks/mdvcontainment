@@ -3,7 +3,7 @@ Helper functions for high quality composition analysis and plotting.
 """
 
 # Python 
-from typing import List, Tuple, Dict, Set, Union, Optional, Iterable
+from typing import List, Tuple, Dict, Set, Union, Optional, Iterable, Literal
 
 # Python Internal
 from .mda_containment import Containment, ContainmentView
@@ -80,7 +80,7 @@ def get_color_mapping(unique_labels: List[str]) -> Dict:
     Returns a color map, mapping each label to a well separated color.
     """
     # Set the color map
-    colors = cm.tab20c(range(len(unique_labels)))
+    colors = cm.tab20c(np.linspace(0, 1, len(unique_labels)))
     # Sort the labels so they are in alphabetical order
     color_map = {label: colors[i] for i, label in enumerate(sorted(unique_labels))}
 
@@ -176,10 +176,10 @@ def analyze_composition(containment: Union[Containment, ContainmentView],
     ncols = int(np.ceil(np.sqrt(num_components)))
     nrows = int(np.ceil(num_components / ncols))
     scale = 4
-    figsize = (ncols * scale, nrows * scale)
+    figsize = (float(ncols * scale), float(nrows * scale))
 
     # Create the fig and the axs list
-    fig, axs = plt.subplots(nrows, ncols, figsize=figsize, constrained_layout=True)
+    fig, axs = plt.subplots(nrows, ncols, figsize=figsize, constrained_layout=True, squeeze=False)
     try:
         axs = axs.flatten()
     # Handle the case of only one subplot
@@ -283,7 +283,7 @@ def show_containment_with_composition(
     compositions = get_compositions(containment, mode)
 
     # ----------- Utilities -----------
-    def map_labels_to_gradient(label_value_map, cmap_colors, other_color="#cccccc"):
+    def map_labels_to_gradient(label_value_map, cmap_colors):
         labels = list(label_value_map.keys())
         values = np.array([label_value_map[label] for label in labels], dtype=float)
         if np.all(values == values[0]):
@@ -293,7 +293,8 @@ def show_containment_with_composition(
             norm = norm_obj
         cmap = mcolors.LinearSegmentedColormap.from_list("custom_heatmap", cmap_colors)
         label_color_map = {label: cmap(norm(value)) for label, value in label_value_map.items()}
-        label_color_map["Other"] = mcolors.to_rgba(other_color)
+        other_color = "#cccccc"
+        label_color_map["Other"] = mcolors.to_rgba(other_color) # type: ignore[arg-type]
         
         return label_color_map
 
@@ -311,6 +312,7 @@ def show_containment_with_composition(
         for label, weight in weighted_items.items():
             rgb = np.array(mcolors.to_rgb(cmap.get(label, "#000000")))
             avg_rgb += (weight / total) * rgb
+        avg_rgb = tuple(avg_rgb)
         return mcolors.to_hex(avg_rgb)
 
     # ----------- Color Mapping -----------
@@ -319,7 +321,7 @@ def show_containment_with_composition(
     else:
         import matplotlib.pyplot as plt
         unique_labels = sorted({k for comp in compositions.values() for k in comp.keys()})
-        cmap = plt.get_cmap('tab20', len(unique_labels))
+        cmap = plt.get_cmap('tab20', len(unique_labels)) # type: ignore[attr-defined]
         base_color_map = {label: cmap(i) for i, label in enumerate(unique_labels)}
         base_color_map["Other"] = "#cccccc"
 
@@ -380,6 +382,7 @@ def show_containment_with_composition(
         # Create hover text - same format for all items including "Other"
         hovertext = []
         for i, l in enumerate(labels):
+            base_text = ''
             if mode in ['names', 'resnames']:
                 base_text = f"{l}: {sizes[i]} atoms ({percents[i]:.1f}%)"
             elif mode == 'molar':
