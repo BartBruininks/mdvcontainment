@@ -3,15 +3,11 @@ MDAnalysis level wrapper for containment of AtomGroups, still uses VoxelContainm
 """
 
 # Python
-from abc import ABC, abstractmethod
-from typing import Union, List, Set, Dict, Tuple, Optional, TypeAlias, Self, TYPE_CHECKING
-
-# Python External
+from typing import Union, List, Set, Dict, Tuple, Optional, TypeAlias, TYPE_CHECKING, Protocol
 import numpy as np
 import numpy.typing as npt
 import MDAnalysis as mda  # type: ignore
 from MDAnalysis.core.topologyattrs import Tempfactors
-
 
 # Python Module
 from .voxel_logic import create_voxels, voxels2atomgroup, morph_voxels
@@ -24,15 +20,26 @@ if TYPE_CHECKING:
 # Type aliases for clarity and reusability
 NDArrayBool: TypeAlias = npt.NDArray[np.bool_]
 
-class ContainmentBase(ABC):
+
+class ContainmentBase:
     """
-    Abstract base class for Containment and ContainmentView.
+    Base class for Containment and ContainmentView.
+    
+    Contains all shared functionality that works on any containment
+    (original or view). Concrete classes must implement ContainmentProtocol
+    to ensure they have all required attributes.
     """
+    
+    # Type hints for the type checker - these attributes will exist at runtime
+    # in concrete subclasses but are defined here for static type checking
+    if TYPE_CHECKING:
+        _base: 'Containment'
+        voxel_containment: Union[VoxelContainment, 'VoxelContainmentView']
 
     def __str__(self) -> str:
         return format_dag_structure(
-            self.voxel_containment.containment_graph, # type: ignore[attr-defined]
-            self.voxel_containment.component_ranks, # type: ignore[attr-defined]
+            self.voxel_containment.containment_graph,
+            self.voxel_containment.component_ranks,
             self.voxel_volumes, 
             unit='nm³')
     
@@ -40,7 +47,7 @@ class ContainmentBase(ABC):
 
     @property
     def nodes(self) -> List[int]:
-        return self.voxel_containment.nodes # type: ignore[attr-defined]
+        return self.voxel_containment.nodes
 
     @property
     def voxel_volume(self) -> float:
@@ -50,44 +57,44 @@ class ContainmentBase(ABC):
 
     @property
     def voxel_volumes(self) -> Dict[int, float]:
-        voxel_counts: Dict[int, int] = self.voxel_containment.voxel_counts # type: ignore[attr-defined]
+        voxel_counts: Dict[int, int] = self.voxel_containment.voxel_counts
         volumes: Dict[int, float] = {
-            key: value * self._base.voxel_volume # type: ignore[attr-defined]
+            key: value * self._base.voxel_volume
             for key, value in voxel_counts.items()
         }
         return volumes
 
     @property
     def atomgroup(self) -> mda.AtomGroup:
-        return self._base._atomgroup # type: ignore[attr-defined]
+        return self._base._atomgroup
 
     @property
     def universe(self) -> mda.Universe:
-        return self._base._universe # type: ignore[attr-defined]
+        return self._base._universe
 
     @property
     def negative_atomgroup(self) -> mda.AtomGroup:
-        return self._base._negative_atomgroup # type: ignore[attr-defined]
+        return self._base._negative_atomgroup
 
     @property
     def resolution(self) -> float:
-        return self._base._resolution # type: ignore[attr-defined]
+        return self._base._resolution
 
     @property
     def closing(self) -> bool:
-        return self._base._closing # type: ignore[attr-defined]
+        return self._base._closing
 
     @property
     def morph(self) -> Optional[str]:
-        return self._base._morph # type: ignore[attr-defined]
+        return self._base._morph
 
     @property
     def boolean_grid(self) -> NDArrayBool:
-        return self._base._boolean_grid # type: ignore[attr-defined]
+        return self._base._boolean_grid
 
     @property
     def mapping_dicts(self) -> Optional[Dict[str, Union[npt.NDArray, Dict]]]:
-        return self._base._mapping # type: ignore[attr-defined]
+        return self._base._mapping
 
     # Shared methods
 
@@ -95,7 +102,7 @@ class ContainmentBase(ABC):
         self,
         voxels: npt.NDArray[np.int32]
     ) -> mda.AtomGroup:
-        if self._base._no_mapping: # type: ignore[attr-defined]
+        if self._base._no_mapping:
             raise ValueError(
                 "Voxel to atomgroup transformations are not possible when using the 'no_mapping' flag.\n"
                 "no_mapping is only useful to speed up generating the voxel level containment,\n"
@@ -110,7 +117,7 @@ class ContainmentBase(ABC):
         nodes: List[int],
         containment: bool = False
     ) -> mda.AtomGroup:
-        if self._base._no_mapping: # type: ignore[attr-defined]
+        if self._base._no_mapping:
             raise ValueError(
                 "Voxel to atomgroup transformations are not possible when using the 'no_mapping' flag.\n"
                 "no_mapping is only useful to speed up generating the voxel level containment,\n"
@@ -118,9 +125,9 @@ class ContainmentBase(ABC):
             )
 
         if containment:
-            nodes = self.voxel_containment.get_downstream_nodes(nodes) # type: ignore[attr-defined]
+            nodes = self.voxel_containment.get_downstream_nodes(nodes)
 
-        voxel_positions: npt.NDArray[np.int32] = self.voxel_containment.get_voxel_positions(nodes) # type: ignore[attr-defined]
+        voxel_positions: npt.NDArray[np.int32] = self.voxel_containment.get_voxel_positions(nodes)
         atomgroup: mda.AtomGroup = self.get_atomgroup_from_voxel_positions(voxel_positions)
         return atomgroup
 
@@ -131,7 +138,7 @@ class ContainmentBase(ABC):
     ) -> List[int]:
         filtered_nodes: List[int] = []
         for node in nodes:
-            downstream: List[int] = list(self.voxel_containment.get_downstream_nodes([node])) # type: ignore[attr-defined]
+            downstream: List[int] = list(self.voxel_containment.get_downstream_nodes([node]))
             voxel_count: float = sum([self.voxel_volumes[n] for n in downstream])
             if voxel_count >= min_size:
                 filtered_nodes.append(int(node))
@@ -139,33 +146,35 @@ class ContainmentBase(ABC):
 
     def node_view(
         self,
-        keep_nodes: Optional[List[int]] = None,
+        keep_nodes: Optional[Union[List[int], Set[int]]] = None,
         min_size: float = 0
     ) -> 'ContainmentView':
         if keep_nodes is None:
-            keep_nodes = self.nodes
+            keep_nodes_list = self.nodes
         else:
-            unknown_nodes: Set[int] = set(keep_nodes) - set(self.nodes)
+            # Convert to list if it's a set
+            keep_nodes_list = list(keep_nodes) if isinstance(keep_nodes, set) else keep_nodes
+            unknown_nodes: Set[int] = set(keep_nodes_list) - set(self.nodes)
             assert len(unknown_nodes) == 0, f"Specified nodes not present in current nodes {unknown_nodes}."
 
         if min_size > 0:
-            keep_nodes = self._filter_nodes_on_volume(keep_nodes, min_size)
-        return ContainmentView(self._base, keep_nodes) # type: ignore[attr-defined]
+            keep_nodes_list = self._filter_nodes_on_volume(keep_nodes_list, min_size)
+        
+        return ContainmentView(self._base, keep_nodes_list)
 
     def set_betafactors(self) -> None:
-        if self._base._no_mapping: # type: ignore[attr-defined]
+        if self._base._no_mapping:
             raise ValueError("set_betafactors requires no_mapping='False'.")
 
         assert self.universe is not None, 'Universe is None.'
         assert self.universe.atoms is not None, 'Universe.atoms is None.'
         assert self.mapping_dicts is not None, "No mapping available this is probably because `no_mapping` was used."
 
-
         betafactors: npt.NDArray[np.float64] = np.zeros(len(self.universe.atoms), dtype=np.float64)
-        all_nodes: List[int] = self.voxel_containment.nodes # type: ignore[attr-defined]
+        all_nodes: List[int] = self.voxel_containment.nodes
 
         for node in all_nodes:
-            voxels: npt.NDArray[np.int32] = self.voxel_containment.get_voxel_positions([node]) # type: ignore[attr-defined]
+            voxels: npt.NDArray[np.int32] = self.voxel_containment.get_voxel_positions([node])
             selected_atoms: mda.AtomGroup = voxels2atomgroup(voxels, self.mapping_dicts, self.universe.atoms)
             if len(selected_atoms) > 0:
                 betafactors[selected_atoms.ix] = node
@@ -173,7 +182,7 @@ class ContainmentBase(ABC):
         is_view: bool = isinstance(self, ContainmentView)
 
         try:
-            self.universe.atoms.tempfactors = betafactors # type: ignore[attr-defined]
+            self.universe.atoms.tempfactors = betafactors  # type: ignore[attr-defined]
             if is_view:
                 print('NOTE: tempfactors already set in the universe, and will be overwritten with the VIEW component ids.')
             else:
@@ -185,6 +194,7 @@ class ContainmentBase(ABC):
                 print('Writing VIEW component ids in the tempfactors of universe.')
             else:
                 print('Writing component ids in the tempfactors of universe.')
+
 
 class Containment(ContainmentBase):
     """
@@ -210,7 +220,6 @@ class Containment(ContainmentBase):
         assert isinstance(verbose, bool), "Verbose must be a boolean."
         assert isinstance(no_mapping, bool), "No_mapping must be a boolean."
         
-
         if closing:
             print("WARNING: The 'closing' parameter is deprecated and will be removed in future versions. Please use the 'morph' parameter with value 'de' instead.")
             if morph != "":
@@ -232,8 +241,8 @@ class Containment(ContainmentBase):
         
         self._boolean_grid, self._mapping = self._voxelize_atomgroup()
 
-        self.voxel_containment: VoxelContainment = VoxelContainment(self._boolean_grid, verbose=self._verbose)
-        self._base: Self = self
+        self.voxel_containment = VoxelContainment(self._boolean_grid, verbose=self._verbose)
+        self._base: 'Containment' = self
 
     def __repr__(self) -> str:
         # Tying around universes is a bit messy...
@@ -261,6 +270,7 @@ class Containment(ContainmentBase):
             grid = morph_voxels(grid, self._morph)
         return grid, mapping
 
+
 class ContainmentView(ContainmentBase):
     """
     Memory-efficient view on a Containment with merged nodes.
@@ -269,10 +279,11 @@ class ContainmentView(ContainmentBase):
     def __init__(
         self,
         base_containment: Containment,
-        keep_nodes: Union[List[int], Set[int]]
+        keep_nodes: List[int]
     ) -> None:
         self._base: Containment = base_containment._base
-        self.voxel_containment: VoxelContainmentView = self._base.voxel_containment.node_view(keep_nodes)
+        self.voxel_containment = self._base.voxel_containment.node_view(keep_nodes)
+        
 
     def __repr__(self) -> str:
         # Tying around universes is a bit messy...
@@ -281,7 +292,11 @@ class ContainmentView(ContainmentBase):
         return f'<ContainmentView with {len(self.universe.atoms)} atoms in a {self.voxel_containment.grid.shape} grid with a resolution of {self.resolution} nm>'
 
     def get_original_nodes(self, view_node: int) -> List[int]:
+        if TYPE_CHECKING:
+            assert type(self.voxel_containment) == VoxelContainmentView
         return self.voxel_containment.get_original_nodes(view_node)
 
     def get_view_node(self, original_node: int) -> Optional[int]:
+        if TYPE_CHECKING:
+            assert type(self.voxel_containment) == VoxelContainmentView
         return self.voxel_containment.get_view_node(original_node)

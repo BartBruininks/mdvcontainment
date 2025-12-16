@@ -3,8 +3,7 @@ Containment analysis at the voxel level, these classes perform the heavy lifting
 """
 
 # Python External 
-from abc import ABC
-from typing import Union, List, Set, Dict, Tuple, Optional, TypeAlias, cast, Hashable, Self, TYPE_CHECKING
+from typing import Union, List, Dict, Tuple, Optional, TypeAlias, cast, TYPE_CHECKING, Protocol
 import numpy as np
 import numpy.typing as npt
 import networkx as nx
@@ -18,15 +17,22 @@ from .voxel_logic import voxels_to_universe
 NDArrayBool: TypeAlias = npt.NDArray[np.bool_]
 NDArrayInt: TypeAlias = npt.NDArray[np.int32]
 
-class VoxelContainmentBase(ABC):
+
+class VoxelContainmentBase:
     """
-    Abstract base class for VoxelContainment and VoxelContainmentView.
+    Base class for VoxelContainment and VoxelContainmentView.
     
     Contains all shared functionality that works on any voxel containment 
-    (original or view). Subclasses must set:
-    - self._base: Reference to the data owner (VoxelContainment instance)
-    - self.containment_graph: The graph to operate on (property)
+    (original or view). Concrete classes must implement VoxelContainmentProtocol
+    to ensure they have all required attributes.
     """
+    
+    # Type hints for the type checker - these attributes will exist at runtime
+    # in concrete subclasses but are defined here for static type checking
+    if TYPE_CHECKING:
+        _base: 'VoxelContainment'
+        _containment_graph: nx.DiGraph
+        _component_contact_graph: nx.Graph
     
     def __str__(self):
         counts = cast(Dict[int, Union[int, float]], self.voxel_counts)
@@ -37,27 +43,27 @@ class VoxelContainmentBase(ABC):
     @property
     def grid(self) -> NDArrayBool:
         """Reference to the original grid."""
-        return self._base._grid # type: ignore[attr-defined]
+        return self._base._grid
     
     @property
     def components_grid(self) -> NDArrayInt:
         """Reference to the base components grid."""
-        return self._base._components_grid # type: ignore[attr-defined]
+        return self._base._components_grid
     
     @property
     def component_contact_graph(self) -> nx.Graph:
         """Contact graph from base containment."""
-        return self._component_contact_graph # type: ignore[attr-defined]
+        return self._component_contact_graph
     
     @property
     def containment_graph(self) -> nx.DiGraph:
         """Return the containment graph computed during construction."""
-        return self._containment_graph # type: ignore[attr-defined]
+        return self._containment_graph
     
     @property
     def component_ranks(self) -> Dict[int, int]:
         """Return the ranks computed during construction."""
-        return self._base._component_ranks # type: ignore[attr-defined]
+        return self._base._component_ranks
     
     @property
     def voxel_counts(self) -> Dict[int, int]:
@@ -70,7 +76,7 @@ class VoxelContainmentBase(ABC):
             # Get all original nodes this node represents
             original_nodes = self._resolve_nodes_to_original([node])
             counts[node] = sum(
-                self._base.voxel_counts.get(orig, 0) for orig in original_nodes # type: ignore[attr-defined]
+                self._base.voxel_counts.get(orig, 0) for orig in original_nodes
             )
         return counts
     
@@ -91,7 +97,7 @@ class VoxelContainmentBase(ABC):
     
     # Helper method for node resolution (override in views)
     
-    def _resolve_nodes_to_original(self, nodes) -> List[int]:
+    def _resolve_nodes_to_original(self, nodes: List[int]) -> List[int]:
         """
         Resolve nodes to their original node IDs in the base containment.
         
@@ -116,7 +122,7 @@ class VoxelContainmentBase(ABC):
         """Returns all nodes (components) in the containment graph."""
         return self.nodes
     
-    def _get_roots(self) -> list[int]:
+    def _get_roots(self) -> List[int]:
         """Returns a list of root nodes (absolute outsides)."""
         return self.root_nodes
     
@@ -177,7 +183,7 @@ class VoxelContainmentBase(ABC):
             total_count += self.voxel_counts.get(node, 0)
         return total_count
     
-    def get_voxel_mask(self, nodes) -> NDArrayBool:
+    def get_voxel_mask(self, nodes: List[int]) -> NDArrayBool:
         """
         Returns a boolean mask over the components grid where the voxel
         value is in the list of provided nodes.
@@ -198,8 +204,8 @@ class VoxelContainmentBase(ABC):
         return np.array(indices).T.astype(np.int32)
     
     def get_universe_from_nodes(
-            self, nodes: Optional[List[int]]=None, 
-            universe: Optional[mda.Universe]=None,
+            self, nodes: Optional[List[int]] = None, 
+            universe: Optional[mda.Universe] = None,
             ) -> mda.Universe:
         """
         Returns the positions of the (selected) nodes as atoms in an MDAnalysis.Universe.
@@ -256,7 +262,7 @@ class VoxelContainmentBase(ABC):
                 filtered_nodes.append(int(node))
         return filtered_nodes
     
-    def node_view(self, keep_nodes: Optional[List[int]]=None, min_size: int=0):
+    def node_view(self, keep_nodes: Optional[List[int]] = None, min_size: int = 0) -> 'VoxelContainmentView':
         """
         Create a view where only keep_nodes are visible.
         
@@ -283,7 +289,7 @@ class VoxelContainmentBase(ABC):
             keep_nodes = self._filter_nodes_on_size(keep_nodes, min_size)
         
         # Always create view from the original base
-        return VoxelContainmentView(self._base, keep_nodes) # type: ignore[attr-defined]
+        return VoxelContainmentView(self._base, keep_nodes)
 
 
 class VoxelContainment(VoxelContainmentBase):
@@ -293,7 +299,7 @@ class VoxelContainment(VoxelContainmentBase):
     A Containment graph is a DAG which has a parent pointing to its children with an edge.
     """
     
-    def __init__(self, grid: NDArrayBool, verbose: bool=False) -> None:
+    def __init__(self, grid: NDArrayBool, verbose: bool = False) -> None:
         """
         Parameters
         ----------
@@ -302,7 +308,7 @@ class VoxelContainment(VoxelContainmentBase):
         verbose : bool
             Enable verbose output.
         """
-        assert grid.dtype ==  bool, 'Input grid should be boolean.'
+        assert grid.dtype == bool, 'Input grid should be boolean.'
         assert type(verbose) == bool, 'Verbose flag should be boolean.'
 
         # Store input parameters
@@ -377,11 +383,13 @@ class VoxelContainmentView(VoxelContainmentBase):
         self._reverse_node_map = self._build_reverse_node_map()
         # For now we rebuild the graphs, I think this is often cheap enough to make this viable
         self._component_contact_graph = self._build_view_graph(self._base.component_contact_graph)
-        self._containment_graph = self._build_view_graph(
+        containment_graph = self._build_view_graph(
             self._base.containment_graph, 
             directed=True, 
             reduce_transitive=True,
             )
+        assert type(containment_graph) == nx.DiGraph, 'The containment graph should be directed.'
+        self._containment_graph = containment_graph
     
     def _resolve_nodes_to_original(self, nodes: List[int]) -> List[int]:
         """
@@ -448,10 +456,10 @@ class VoxelContainmentView(VoxelContainmentBase):
         return reverse_map
     
     def _build_view_graph(
-            self, source_graph: nx.DiGraph|nx.Graph, 
-            directed: bool=False, 
-            reduce_transitive: bool=False,
-            ) -> nx.DiGraph|nx.Graph:
+            self, source_graph: Union[nx.DiGraph, nx.Graph], 
+            directed: bool = False, 
+            reduce_transitive: bool = False,
+            ) -> Union[nx.DiGraph, nx.Graph]:
         """
         Build a view graph with remapped node IDs from a source graph.
         
