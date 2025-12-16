@@ -3,7 +3,6 @@ Helper functions for high quality composition analysis and plotting.
 """
 
 # Python 
-from collections import Counter
 from typing import List, Tuple, Dict, Set, Union, Optional, Iterable
 
 # Python Internal
@@ -17,6 +16,8 @@ from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import matplotlib.colors as mcolors
+import matplotlib.cm as cm
+
 try:
     import ipywidgets as widgets # type: ignore
     from IPython.display import display 
@@ -61,19 +62,16 @@ def get_compositions(containment: Union[Containment, ContainmentView],
 
 
 def get_unique_labels(universe: Universe, mode: str = 'resnames') -> List[str]:
-    """
-    Returns the sorted list of unique labels in the compositions dict.
-    """
-    # Create a consistent color map for labels
+    if universe.atoms is None or universe.residues is None:
+        raise ValueError("Universe object is not properly initialized. Check your input files.")
     if mode == 'resnames':
         unique_labels = set(universe.atoms.resnames)
     elif mode == 'names':
         unique_labels = set(universe.atoms.names)
     elif mode == 'molar':
-        unique_labels = set(universe.residues.resnames) 
+        unique_labels = set(universe.residues.resnames)
     else:
         raise ValueError("Please specify a valid mode ('resnames', 'names' or 'molar')")
-
     return sorted(list(unique_labels))
 
 
@@ -82,7 +80,7 @@ def get_color_mapping(unique_labels: List[str]) -> Dict:
     Returns a color map, mapping each label to a well separated color.
     """
     # Set the color map
-    colors = plt.cm.tab20c(range(len(unique_labels)))
+    colors = cm.tab20c(range(len(unique_labels)))
     # Sort the labels so they are in alphabetical order
     color_map = {label: colors[i] for i, label in enumerate(sorted(unique_labels))}
 
@@ -296,6 +294,7 @@ def show_containment_with_composition(
         cmap = mcolors.LinearSegmentedColormap.from_list("custom_heatmap", cmap_colors)
         label_color_map = {label: cmap(norm(value)) for label, value in label_value_map.items()}
         label_color_map["Other"] = mcolors.to_rgba(other_color)
+        
         return label_color_map
 
     def average_value(weighted_items, value_map):

@@ -173,7 +173,9 @@ def _voxelate_atomgroup(
     """
     check = max_offset is True
     resolution = abs(resolution)
-
+    assert atomgroup.dimensions is not None, 'AtomGroup.dimensions is None.'
+    
+    box = dim2lattice(*atomgroup.dimensions)
     box = dim2lattice(*atomgroup.dimensions)
     # The 10 is for going from nm to Angstrom
     nbox = (box / (10 * resolution)).round().astype(int)  # boxels
@@ -547,6 +549,11 @@ def voxels_to_universe(
         residue_segindex=[0] * n_atoms,
         trajectory=True,
     )
+
+    # The typing of a universe is not completely safe as it can be partially created?
+    assert u is not None, 'Universe is None.'
+    assert u.atoms is not None, 'Universe.atoms is None.'
+    assert u.atoms.positions is not None, 'Universe.atoms.positions is None.'
 
     # Coordinates
     u.atoms.positions = filtered_indices * box_scale

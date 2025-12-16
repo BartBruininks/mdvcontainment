@@ -4,20 +4,20 @@ Graph rank analysis using Eulerian paths and cycle detection.
 import networkx as nx
 import numpy as np
 import numpy.typing as npt
-from typing import List, Tuple, Dict, Set
+from typing import List, Tuple, Dict, Set, Any
 
 # Constants
 SINGULAR_VALUE_TOLERANCE = 0.0001
 
 
-def get_path_matrix(graph: nx.MultiGraph, key: str = 'value') -> npt.NDArray[np.float64]:
+def get_path_matrix(graph: nx.Graph, key: str = 'value') -> npt.NDArray[np.float64]:
     """
     Returns an array with the edge and edge weight in order of the Eulerian path.
     
     Parameters
     ----------
     graph
-        A MultiGraph that must have an Eulerian circuit
+        A Graph that must have an Eulerian circuit
     key, default='value'x
         The edge attribute key to extract weights from
         
@@ -30,11 +30,11 @@ def get_path_matrix(graph: nx.MultiGraph, key: str = 'value') -> npt.NDArray[np.
     ValueError
         If the graph doesn't have an Eulerian circuit
     """
-    if not nx.is_eulerian(graph):
+    if not nx.is_eulerian(graph): # type: ignore[attr-defined]
         raise ValueError("Graph must be Eulerian to compute path matrix")
     
-    eulerian = list(nx.eulerian_circuit(graph, keys=True))
-    path = []
+    eulerian = list(nx.eulerian_circuit(graph, keys=True)) # type: ignore[attr-defined]
+    path: list[Any] = []
     
     for source, sink, edge in eulerian:
         weight = graph.get_edge_data(source, sink, edge)[key]
@@ -161,14 +161,14 @@ def get_rank_from_edge_cycle_matrix(edge_cycle_matrix: npt.NDArray[np.float64]) 
     rank: int = int(np.sum(singular_values > SINGULAR_VALUE_TOLERANCE))
     return rank
 
-def get_rank(graph: nx.MultiGraph, key: str = 'cost') -> int:
+def get_rank(graph: nx.Graph, key: str = 'cost') -> int:
     """
     Computes the topological rank of a graph object.
     
     Parameters
     ----------
     graph
-        A MultiGraph with an Eulerian circuit
+        A Graph with an Eulerian circuit
     key, default='cost'
         Edge attribute key for weights
         
@@ -183,8 +183,8 @@ def get_rank(graph: nx.MultiGraph, key: str = 'cost') -> int:
     return rank
 
 def make_relabel_dicts(
-    positive_subgraphs: List[nx.MultiGraph],
-    negative_subgraphs: List[nx.MultiGraph]
+    positive_subgraphs: List[nx.MultiDiGraph],
+    negative_subgraphs: List[nx.MultiDiGraph]
 ) -> Tuple[Dict[int, Tuple], Dict[Tuple, int]]:
     """
     Creates bidirectional mapping between component IDs and node labels.
@@ -244,20 +244,16 @@ def _compute_complement_rank(
     complement_labels = all_labels - component_labels
     complement_graph = contact_graph.subgraph(complement_labels)
     
-    #TODO Check how the typing works here, for get_rank I am pretty
-    # sure we need a MultiGraph, but here we are just passing graphs.
-    # I am not sure why this is not giving issues. It seems to work just
-    # fine, but it beats me as to why... Take a look into this!
     max_rank = 0
-    for component in nx.connected_components(nx.Graph(complement_graph)):
+    for component in nx.connected_components(nx.Graph(complement_graph)): # type: ignore[attr-defined]
         subgraph = complement_graph.subgraph(component)
         rank = get_rank(subgraph)
         max_rank = max(max_rank, rank)
     return max_rank
 
 def get_ranks(
-    positive_subgraphs: List[nx.MultiGraph],
-    negative_subgraphs: List[nx.MultiGraph],
+    positive_subgraphs: List[nx.MultiDiGraph],
+    negative_subgraphs: List[nx.MultiDiGraph],
     nonp_unique_labels: List,
     component_to_labels: Dict[int, Tuple],
     labels_to_component: Dict[Tuple, int],

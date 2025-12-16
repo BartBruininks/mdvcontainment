@@ -30,27 +30,27 @@ class VoxelContainmentBase(ABC):
     @property
     def grid(self):
         """Reference to the original grid."""
-        return self._base._grid
+        return self._base._grid # type: ignore[attr-defined]
     
     @property
     def components_grid(self):
         """Reference to the base components grid."""
-        return self._base._components_grid
+        return self._base._components_grid # type: ignore[attr-defined]
     
     @property
     def component_contact_graph(self):
         """Contact graph from base containment."""
-        return self._component_contact_graph
+        return self._component_contact_graph # type: ignore[attr-defined]
     
     @property
     def containment_graph(self):
         """Return the containment graph computed during construction."""
-        return self._containment_graph
+        return self._containment_graph # type: ignore[attr-defined]
     
     @property
     def component_ranks(self):
         """Return the ranks computed during construction."""
-        return self._base._component_ranks
+        return self._base._component_ranks # type: ignore[attr-defined]
     
     @property
     def voxel_counts(self):
@@ -63,7 +63,7 @@ class VoxelContainmentBase(ABC):
             # Get all original nodes this node represents
             original_nodes = self._resolve_nodes_to_original([node])
             counts[node] = sum(
-                self._base.voxel_counts.get(orig, 0) for orig in original_nodes
+                self._base.voxel_counts.get(orig, 0) for orig in original_nodes # type: ignore[attr-defined]
             )
         return counts
     
@@ -136,7 +136,7 @@ class VoxelContainmentBase(ABC):
         
         for node in start_nodes:
             if node in self.containment_graph:
-                downstream_nodes.update(nx.descendants(self.containment_graph, node))
+                downstream_nodes.update(nx.descendants(self.containment_graph, node)) # type: ignore[attr-defined]
         return sorted(downstream_nodes)
     
     def get_parent_nodes(self, start_nodes):
@@ -158,7 +158,7 @@ class VoxelContainmentBase(ABC):
         
         for node in start_nodes:
             if node in self.containment_graph:
-                upstream_nodes.update(nx.ancestors(self.containment_graph, node))
+                upstream_nodes.update(nx.ancestors(self.containment_graph, node)) # type: ignore[attr-defined]
         return sorted(upstream_nodes)
     
     def get_total_voxel_count(self, nodes):
@@ -272,7 +272,7 @@ class VoxelContainmentBase(ABC):
             keep_nodes = self._filter_nodes_on_size(keep_nodes, min_size)
         
         # Always create view from the original base
-        return VoxelContainmentView(self._base, keep_nodes)
+        return VoxelContainmentView(self._base, keep_nodes) # type: ignore[attr-defined]
 
 
 class VoxelContainment(VoxelContainmentBase):
@@ -396,7 +396,7 @@ class VoxelContainmentView(VoxelContainmentBase):
         
         # Second pass: map removed nodes to nearest kept ancestor
         try:
-            topo_order = list(nx.topological_sort(self._base.containment_graph))
+            topo_order = list(nx.topological_sort(self._base.containment_graph)) # type: ignore[attr-defined]
         except:
             topo_order = self._base.nodes
         
@@ -467,7 +467,7 @@ class VoxelContainmentView(VoxelContainmentBase):
         
         # Apply transitive reduction if requested (only for directed graphs)
         if reduce_transitive and directed:
-            view_graph = nx.transitive_reduction(view_graph)
+            view_graph = nx.transitive_reduction(view_graph) # type: ignore[attr-defined]
         
         return view_graph
     
