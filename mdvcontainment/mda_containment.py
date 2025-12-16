@@ -22,10 +22,7 @@ if TYPE_CHECKING:
     from .voxel_containment import VoxelContainmentView
 
 # Type aliases for clarity and reusability
-ArrayLike: TypeAlias = npt.ArrayLike
 NDArrayBool: TypeAlias = npt.NDArray[np.bool_]
-NDArrayInt: TypeAlias = npt.NDArray[np.int_]
-VoxelPosition: TypeAlias = Tuple[int, int, int]
 
 class ContainmentBase(ABC):
     """
