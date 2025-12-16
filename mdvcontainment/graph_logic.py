@@ -305,7 +305,7 @@ def format_dag(
     G: nx.DiGraph, 
     node: int, 
     ranks: Dict[int, int], 
-    counts: Dict[int, int],
+    counts: Dict[int, int|float],
     prefix: str = '', 
     is_last: bool = True
 ) -> str:

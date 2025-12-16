@@ -41,7 +41,7 @@ def make_complex_3D(roll: int = 0):
 def _generate_perlin_noise_3d(shape: npt.NDArray[np.int_], 
                               res: Tuple[int, int, int], 
                               tileable: Tuple[bool, bool, bool] =(True, True, True), 
-                              seed: int = 0) -> npt.NDArray[np.float64]:
+                              seed: int = 0) -> npt.NDArray[np.bool_]:
     """
     Returns correlated noise. The res should be all factors of the shape.
     e.g. shape = (10,10,10) --> res = (2, 1, 5)
@@ -98,7 +98,7 @@ def _generate_perlin_noise_3d(shape: npt.NDArray[np.int_],
 def create_3d_boolean_grid(shape: npt.NDArray[np.int_], 
                            true_prob: float = 0.5, 
                            res: Tuple[int, int, int] =(2,2,2), 
-                           seed: int = 0) -> npt.NDArray[np.float64]:
+                           seed: int = 0) -> npt.NDArray[np.bool_]:
     """Create a 3D boolean grid with the given shape and probability of True values."""
     return (_generate_perlin_noise_3d(shape, res, seed=seed) + 0.5) > true_prob
 

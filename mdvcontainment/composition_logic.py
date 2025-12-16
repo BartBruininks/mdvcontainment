@@ -126,7 +126,8 @@ def plot_pie_chart(data, ax, color_map, cutoff=10):
     font_properties = {'family': 'monospace'}
     ax.legend(wedges, legend_labels, title="Labels", loc="center left", bbox_to_anchor=(1.0, 0, 0.5, 1), prop=font_properties)
 
-
+#TODO Make it so that empty plots are removed from the created figure, in such a manner
+# that is still occupies the smallest NxM.
 def analyze_composition(containment: Union[Containment, ContainmentView], 
                         mode: str = 'names', 
                         savefig: str = 'compositions.png',
@@ -168,6 +169,11 @@ def analyze_composition(containment: Union[Containment, ContainmentView],
     u = containment.universe
     compositions = get_compositions(containment, mode)
 
+    # Non empty compositions
+    compositions = {key:value for key, value in compositions.items() if value}
+    print(compositions)
+
+    # Setting the labels
     unique_labels = sorted(get_unique_labels(u, mode=mode))
     color_map = get_color_mapping(unique_labels)
     color_map["Other"] = "#cccccc"  # gray for 'Other'
@@ -178,13 +184,13 @@ def analyze_composition(containment: Union[Containment, ContainmentView],
     scale = 4
     figsize = (float(ncols * scale), float(nrows * scale))
 
-    # Create the fig and the axs list
-    fig, axs = plt.subplots(nrows, ncols, figsize=figsize, constrained_layout=True, squeeze=False)
-    try:
-        axs = axs.flatten()
-    # Handle the case of only one subplot
-    except AttributeError:
-        axs = [axs]
+    # Create the fig and the axs list (overload not detected in typing)
+    fig, axs = plt.subplots(
+        nrows, ncols, 
+        squeeze=False,
+        **{"figsize": figsize, "constrained_layout": True}  # type: ignore[arg-type]
+    )
+    axs = list(axs.flatten())
 
     all_keys = list(compositions.keys())
     root_nodes = containment.voxel_containment.root_nodes
