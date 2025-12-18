@@ -23,9 +23,8 @@ class VoxelContainmentBase:
     """
     Base class for VoxelContainment and VoxelContainmentView.
     
-    Contains all shared functionality that works on any voxel containment 
-    (original or view). Concrete classes must implement VoxelContainmentProtocol
-    to ensure they have all required attributes.
+    Contains all shared functionality that works on any containment
+    (original or view).
     """
     
     # Type hints for the type checker - these attributes will exist at runtime

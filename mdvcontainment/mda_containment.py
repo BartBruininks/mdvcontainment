@@ -26,10 +26,8 @@ class ContainmentBase:
     Base class for Containment and ContainmentView.
     
     Contains all shared functionality that works on any containment
-    (original or view). Concrete classes must implement ContainmentProtocol
-    to ensure they have all required attributes.
+    (original or view).
     """
-    
     # Type hints for the type checker - these attributes will exist at runtime
     # in concrete subclasses but are defined here for static type checking
     if TYPE_CHECKING:
@@ -47,19 +45,19 @@ class ContainmentBase:
 
     @property
     def nodes(self) -> List[int]:
-        """List of all component IDs."""
+        """List of all component/node IDs."""
         return self.voxel_containment.nodes
 
     @property
     def voxel_volume(self) -> float:
-        """Effective voxel volume (this might deviate from the resolution^3)."""
+        """Effective voxel volume in nm³ (this might deviate from the resolution³)."""
         total_volume: float = float(np.prod(self.universe.dimensions[:3]))
         total_voxels: int = int(np.prod(self.boolean_grid.shape))
         return (total_volume / total_voxels) / 1000  # Convert A^3 to nm^3
 
     @property
     def component_volumes(self) -> Dict[int, float]:
-        """Component volumes as a dict."""
+        """Component volumes in nm³ as a dict."""
         voxel_counts: Dict[int, int] = self.voxel_containment.voxel_counts
         volumes: Dict[int, float] = {
             key: value * self._base.voxel_volume
@@ -70,33 +68,32 @@ class ContainmentBase:
     @property
     def atomgroup(self) -> mda.AtomGroup:
         """
-        Reference to the input AtomGroup used for the creation of the boolean grid.
+        Reference to the input `AtomGroup` used for the creation of the boolean grid.
 
         A voxel is set to `True` if at least one atom lies inside it.
-        
         """
         return self._base._atomgroup
 
     @property
     def universe(self) -> mda.Universe:
-        """Reference to the input Universe."""
+        """Reference to the input `Universe`."""
         return self._base._universe
 
     @property
     def negative_atomgroup(self) -> mda.AtomGroup:
-        """Reference to all atoms in the Universe not in the input AtomGroup."""
+        """Reference to all atoms in the `Universe` NOT in the input `AtomGroup`."""
         return self._base._negative_atomgroup
 
     @property
     def resolution(self) -> float:
         """
-        Reference to the input target resolution in nm for the voxel size.
+        Reference to the input target `resolution` in nm for the voxel size.
         
-        The resolution might deviate slightly from the real voxel shape. As the 
-        voxel size has to be an integer divider of the box size.
+        The resolution might deviate slightly (`max_offset`) from the real voxel shape. 
+        As the voxel size has to be an integer divider of the box size.
         
         The resolution should be about twice the average distance (LJ sigma),
-        of the condensed phase. I.e. for CG Martini use 1.0 nm, or use 0.5 nm
+        of the condensed phase. E.g. for CG Martini use 1.0 nm, or use 0.5 nm
         with `closing`. For atomistic systems a resolution of 0.5 nm can
         often be used without `closing`.
         """
@@ -105,11 +102,11 @@ class ContainmentBase:
     @property
     def closing(self) -> bool:
         """
-        Reference to the input argument for closing (bool).
+        Reference to the input argument `closing` (bool).
         
         Closing performs binary dilation and erosion on the boolean grid
         to close small holes. Closing is advised when using CG Martini
-        with a `resolution` of 0.5 nm. 
+        with a `resolution` of 0.5 nm.
         """
         return self._base._closing
 
@@ -130,9 +127,15 @@ class ContainmentBase:
         return self._base._morph
 
     @property
+    def max_offset(self) -> float:
+        """Reference to the input `max_offset`, specifies the maximum deviation 
+        ratio between the target and resulting voxel resolution."""
+        return self._base._max_offset
+
+    @property
     def boolean_grid(self) -> NDArrayBool:
         """
-        Reference to created boolean grid.
+        Created boolean grid by atom occupancy and or morphing.
         
         Initially a voxel in the grid is `True` if any atom in the input AtomGroup lies in it.
         This can be affected by `closing` and `morph` as well, which would alter the boolean values
@@ -158,7 +161,7 @@ class ContainmentBase:
         self,
         voxels: npt.NDArray[np.int32],
         ) -> mda.AtomGroup:
-        """Returns the AtomGroup of all atoms which lie in the specified voxel positions."""
+        """Returns the `AtomGroup` of all atoms which lie in the specified voxel positions."""
         if self._base._no_mapping:
             raise ValueError(
                 "Voxel to atomgroup transformations are not possible when using the 'no_mapping' flag.\n"
@@ -174,7 +177,7 @@ class ContainmentBase:
         nodes: List[int],
         containment: bool = False,
         ) -> mda.AtomGroup:
-        """Returns the AtomGroup of all atoms which lie in voxels whose label ID is in the provided list of nodes."""
+        """Returns the `AtomGroup` of all atoms which lie in voxels whose label ID is in the provided list of nodes."""
         if self._base._no_mapping:
             raise ValueError(
                 "Voxel to atomgroup transformations are not possible when using the 'no_mapping' flag.\n"
@@ -208,7 +211,7 @@ class ContainmentBase:
         keep_nodes: Optional[Union[List[int], Set[int]]] = None,
         min_size: float = 0,
         ) -> 'ContainmentView':
-        """Returns a ContainmentView which collapses all nodes upstream which are not selected."""
+        """Returns a `ContainmentView` which collapses all nodes upstream which are not selected."""
         if keep_nodes is None:
             keep_nodes_list = self.nodes
         else:
@@ -223,7 +226,7 @@ class ContainmentBase:
         return ContainmentView(self._base, keep_nodes_list)
 
     def set_betafactors(self) -> None:
-        """Sets the component IDs of the atoms in the betafactor of the Universe."""
+        """Sets the component IDs of the atoms in the betafactor of the `Universe`."""
         if self._base._no_mapping:
             raise ValueError("set_betafactors requires no_mapping='False'.")
 
@@ -245,21 +248,36 @@ class ContainmentBase:
         try:
             self.universe.atoms.tempfactors = betafactors  # type: ignore[attr-defined]
             if is_view:
-                print('NOTE: tempfactors already set in the universe, and will be overwritten with the VIEW component ids.')
+                print('NOTE: tempfactors already set in the `Universe`, and will be overwritten with the VIEW component ids.')
             else:
-                print('NOTE: tempfactors already set in the universe, and will be overwritten with the component ids.')
+                print('NOTE: tempfactors already set in the `Universe`, and will be overwritten with the component ids.')
         except AttributeError:
             self.universe.add_TopologyAttr(
                 Tempfactors(betafactors))
             if is_view:
-                print('Writing VIEW component ids in the tempfactors of universe.')
+                print('Writing VIEW component ids in the tempfactors of Universe.')
             else:
-                print('Writing component ids in the tempfactors of universe.')
+                print('Writing component ids in the tempfactors of Universe.')
 
 
 class Containment(ContainmentBase):
     """
     Hierarchical spatial containment analysis of molecular systems.
+
+    Examples
+    --------
+    Basic usage with an MDAnalysis AtomGroup:
+
+    >>> import MDAnalysis as mda
+    >>> u = mda.Universe('topology.pdb', 'trajectory.xtc')
+    >>> membrane = u.select_atoms('resname POPC')
+    >>> containment = Containment(membrane, resolution=0.5)
+    >>> print(containment)
+
+    Notes
+    -----
+    The module uses nanometer (nm) units for lengths and volumes. MDAnalysis 
+    atomgroups using Angstrom units are automatically converted internally.
     """
 
     def __init__(
@@ -336,6 +354,18 @@ class Containment(ContainmentBase):
 class ContainmentView(ContainmentBase):
     """
     Memory-efficient view on a Containment with merged nodes.
+
+    Example
+    -------
+    Create a filtered view:
+
+    >>> # Keep only large compartments (>200 nm³)
+    >>> view = containment.node_view(min_size=200)
+    >>> atoms = view.get_atomgroup_from_nodes([1, 2, 3])
+
+    Access the containment graph from VoxelContainment
+
+    >>> containment.voxel_containment.containment_graph
     """
 
     def __init__(
