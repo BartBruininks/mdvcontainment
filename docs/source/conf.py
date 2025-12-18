@@ -32,7 +32,7 @@ autosummary_generate = True   # Generate stub files automatically
 autodoc_typehints = 'description'
 autodoc_default_options = {
     'members': True,
-    'undoc-members': False,
+    'undoc-members': True,
     'private-members': False,
     'show-inheritance': True,
     'inherited-members': True,

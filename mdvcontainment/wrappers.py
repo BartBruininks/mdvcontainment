@@ -71,7 +71,7 @@ def connected_components(graph: Graph|DiGraph|MultiDiGraph) -> List[Set[int]]:
     Generate connected components.
 
     The connected components of a (Multi)(Di)Graph partition the graph into disjoint sets of 
-    nodes. Each of these sets induces a subgraph of graph G that is connected and not part of 
+    nodes. Each of these sets induces a subgraph ogf graph G that is connected and not part of 
     any larger connected subgraph.
     
     A graph is connected if, for every pair of distinct nodes, there is a path 

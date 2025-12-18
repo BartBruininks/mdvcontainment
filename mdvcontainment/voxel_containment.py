@@ -58,12 +58,12 @@ class VoxelContainmentBase:
     
     @property
     def containment_graph(self) -> DiGraph:
-        """Return the containment graph computed during construction."""
+        """Containment graph computed during construction."""
         return self._containment_graph
     
     @property
     def component_ranks(self) -> Dict[int, int]:
-        """Return the ranks computed during construction."""
+        """Component ranks computed during construction."""
         return self._base._component_ranks
     
     @property

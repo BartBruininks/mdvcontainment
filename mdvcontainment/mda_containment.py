@@ -40,23 +40,26 @@ class ContainmentBase:
         return format_dag_structure(
             self.voxel_containment.containment_graph,
             self.voxel_containment.component_ranks,
-            self.voxel_volumes, 
+            self.component_volumes, 
             unit='nm³')
     
     # Properties - all delegate to _base for data access
 
     @property
     def nodes(self) -> List[int]:
+        """List of all component IDs."""
         return self.voxel_containment.nodes
 
     @property
     def voxel_volume(self) -> float:
+        """Effective voxel volume (this might deviate from the resolution^3)."""
         total_volume: float = float(np.prod(self.universe.dimensions[:3]))
         total_voxels: int = int(np.prod(self.boolean_grid.shape))
         return (total_volume / total_voxels) / 1000  # Convert A^3 to nm^3
 
     @property
-    def voxel_volumes(self) -> Dict[int, float]:
+    def component_volumes(self) -> Dict[int, float]:
+        """Component volumes as a dict."""
         voxel_counts: Dict[int, int] = self.voxel_containment.voxel_counts
         volumes: Dict[int, float] = {
             key: value * self._base.voxel_volume
@@ -66,42 +69,58 @@ class ContainmentBase:
 
     @property
     def atomgroup(self) -> mda.AtomGroup:
+        """Reference to the input AtomGroup."""
         return self._base._atomgroup
 
     @property
     def universe(self) -> mda.Universe:
+        """Reference to the input Universe."""
         return self._base._universe
 
     @property
     def negative_atomgroup(self) -> mda.AtomGroup:
+        """Reference to all atoms in the Universe not in the input AtomGroup."""
         return self._base._negative_atomgroup
 
     @property
     def resolution(self) -> float:
+        """Reference to the input target resolution (might deviate slightly from the real voxel shape)."""
         return self._base._resolution
 
     @property
     def closing(self) -> bool:
+        """Reference to the input argument for closing (bool)."""
         return self._base._closing
 
     @property
     def morph(self) -> Optional[str]:
+        """Reference to the input morph string."""
         return self._base._morph
 
     @property
     def boolean_grid(self) -> NDArrayBool:
+        """Reference to the input boolean grid."""
         return self._base._boolean_grid
 
     @property
     def mapping_dicts(self) -> Optional[Dict[str, Union[npt.NDArray, Dict]]]:
+        """
+        AtomGroup-Voxels mapping dicts.
+        
+        If self._return_mapping=True, contains:
+            - 'atom_voxels': (N, 3) array mapping each atom to voxel coordinates
+            - 'voxel_to_atoms': dict mapping voxel tuple to atom indices
+            - 'atom_indices': original atom indices from atomgroup
+        """
         return self._base._mapping
 
     # Shared methods
 
     def get_atomgroup_from_voxel_positions(
         self,
-        voxels: npt.NDArray[np.int32]
-    ) -> mda.AtomGroup:
+        voxels: npt.NDArray[np.int32],
+        ) -> mda.AtomGroup:
+        """Returns the AtomGroup of all atoms which lie in the specified voxel positions."""
         if self._base._no_mapping:
             raise ValueError(
                 "Voxel to atomgroup transformations are not possible when using the 'no_mapping' flag.\n"
@@ -115,8 +134,9 @@ class ContainmentBase:
     def get_atomgroup_from_nodes(
         self,
         nodes: List[int],
-        containment: bool = False
-    ) -> mda.AtomGroup:
+        containment: bool = False,
+        ) -> mda.AtomGroup:
+        """Returns the AtomGroup of all atoms which lie in voxels whose label ID is in the provided list of nodes."""
         if self._base._no_mapping:
             raise ValueError(
                 "Voxel to atomgroup transformations are not possible when using the 'no_mapping' flag.\n"
@@ -134,12 +154,13 @@ class ContainmentBase:
     def _filter_nodes_on_volume(
         self,
         nodes: List[int],
-        min_size: float
-    ) -> List[int]:
+        min_size: float,
+        ) -> List[int]:
+        """Returns all nodes who have a downstream volume larger than the cutoff (includes self)."""
         filtered_nodes: List[int] = []
         for node in nodes:
             downstream: List[int] = list(self.voxel_containment.get_downstream_nodes([node]))
-            voxel_count: float = sum([self.voxel_volumes[n] for n in downstream])
+            voxel_count: float = sum([self.component_volumes[n] for n in downstream])
             if voxel_count >= min_size:
                 filtered_nodes.append(int(node))
         return filtered_nodes
@@ -147,8 +168,9 @@ class ContainmentBase:
     def node_view(
         self,
         keep_nodes: Optional[Union[List[int], Set[int]]] = None,
-        min_size: float = 0
-    ) -> 'ContainmentView':
+        min_size: float = 0,
+        ) -> 'ContainmentView':
+        """Returns a ContainmentView which collapses all nodes upstream which are not selected."""
         if keep_nodes is None:
             keep_nodes_list = self.nodes
         else:
@@ -163,6 +185,7 @@ class ContainmentBase:
         return ContainmentView(self._base, keep_nodes_list)
 
     def set_betafactors(self) -> None:
+        """Sets the component IDs of the atoms in the betafactor of the Universe."""
         if self._base._no_mapping:
             raise ValueError("set_betafactors requires no_mapping='False'.")
 
@@ -251,6 +274,7 @@ class Containment(ContainmentBase):
         return f'<Containment with {len(self.universe.atoms)} atoms in a {self.voxel_containment.grid.shape} grid with a resolution of {self.resolution} nm>'
 
     def _voxelize_atomgroup(self) -> Tuple[NDArrayBool, Optional[Dict[str, Union[npt.NDArray, Dict]]]]:
+        """Returns the boolean occupancy grid by the atoms and the associated mapping if required."""
         # Tying around universes is a bit messy...
         assert self._universe is not None, 'Universe is None.'
         assert self._universe.atoms is not None, 'Universe.atoms is None.'
@@ -292,11 +316,13 @@ class ContainmentView(ContainmentBase):
         return f'<ContainmentView with {len(self.universe.atoms)} atoms in a {self.voxel_containment.grid.shape} grid with a resolution of {self.resolution} nm>'
 
     def get_original_nodes(self, view_node: int) -> List[int]:
+        """Returns the original nodes that are mapped to the view node."""
         if TYPE_CHECKING:
             assert type(self.voxel_containment) == VoxelContainmentView
         return self.voxel_containment.get_original_nodes(view_node)
 
     def get_view_node(self, original_node: int) -> Optional[int]:
+        """Returns the view node the original node is mapped to."""
         if TYPE_CHECKING:
             assert type(self.voxel_containment) == VoxelContainmentView
         return self.voxel_containment.get_view_node(original_node)
