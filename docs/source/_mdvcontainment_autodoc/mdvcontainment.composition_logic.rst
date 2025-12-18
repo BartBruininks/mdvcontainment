@@ -9,7 +9,6 @@
    .. autosummary::
    
       analyze_composition
-      combine_dicts
       get_color_mapping
       get_compositions
       get_unique_labels

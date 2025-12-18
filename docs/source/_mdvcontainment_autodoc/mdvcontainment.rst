@@ -18,6 +18,7 @@ Submodules
    mdvcontainment.rank_logic
    mdvcontainment.voxel_containment
    mdvcontainment.voxel_logic
+   mdvcontainment.wrappers
 
 Module contents
 ---------------

@@ -13,9 +13,7 @@ Internal modules (for development only):
    mdvcontainment.rank_logic
    mdvcontainment.graph_logic
    mdvcontainment.composition_logic
-
+   mdvcontainment.wrappers
    mdvcontainment.gen_data_helper
+   
 
-   mdvcontainment.atoms_voxels_mapping
-   mdvcontainment.find_label_contacts
-   mdvcontainment.find_bridges
