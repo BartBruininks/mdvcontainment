@@ -69,7 +69,12 @@ class ContainmentBase:
 
     @property
     def atomgroup(self) -> mda.AtomGroup:
-        """Reference to the input AtomGroup."""
+        """
+        Reference to the input AtomGroup used for the creation of the boolean grid.
+
+        A voxel is set to `True` if at least one atom lies inside it.
+        
+        """
         return self._base._atomgroup
 
     @property
@@ -84,22 +89,55 @@ class ContainmentBase:
 
     @property
     def resolution(self) -> float:
-        """Reference to the input target resolution (might deviate slightly from the real voxel shape)."""
+        """
+        Reference to the input target resolution in nm for the voxel size.
+        
+        The resolution might deviate slightly from the real voxel shape. As the 
+        voxel size has to be an integer divider of the box size.
+        
+        The resolution should be about twice the average distance (LJ sigma),
+        of the condensed phase. I.e. for CG Martini use 1.0 nm, or use 0.5 nm
+        with `closing`. For atomistic systems a resolution of 0.5 nm can
+        often be used without `closing`.
+        """
         return self._base._resolution
 
     @property
     def closing(self) -> bool:
-        """Reference to the input argument for closing (bool)."""
+        """
+        Reference to the input argument for closing (bool).
+        
+        Closing performs binary dilation and erosion on the boolean grid
+        to close small holes. Closing is advised when using CG Martini
+        with a `resolution` of 0.5 nm. 
+        """
         return self._base._closing
 
     @property
     def morph(self) -> Optional[str]:
-        """Reference to the input morph string."""
+        """
+        Reference to the input morph string.
+        
+        Morphing is the general case for performing any amount of binary 
+        dilation and or erosion operations. The operations are performed 
+        in order of occurrence in the string.
+
+        Example
+        -------
+        >>> # Perform dilation first, then erosion followed by one last dilation. 
+        >>> morph = 'ded' 
+        """
         return self._base._morph
 
     @property
     def boolean_grid(self) -> NDArrayBool:
-        """Reference to the input boolean grid."""
+        """
+        Reference to created boolean grid.
+        
+        Initially a voxel in the grid is `True` if any atom in the input AtomGroup lies in it.
+        This can be affected by `closing` and `morph` as well, which would alter the boolean values
+        as indicated.
+        """
         return self._base._boolean_grid
 
     @property
