@@ -1,6 +1,6 @@
 """
-Wrappers are function bindings around third party untyped functions. This file neatly contains all 
-`unsafe` typing ignores and rebinds them to what they are expected to be.
+Wrappers are function bindings around third party and cython untyped functions. This file neatly 
+contains all `unsafe` typing ignores and rebinds them to what they are expected to be.
 """
 # Python
 from typing import List, Optional, Tuple, Set
@@ -97,13 +97,11 @@ def label(grid: npt.NDArray[np.bool_], structure: npt.NDArray[np.bool_]) -> Tupl
     ncomponents = scipy_label(grid, structure=structure, output=relabeled_grid)
     return relabeled_grid, int(ncomponents) # type: ignore[return-value]
 
-
 ## cython wrappers
 def find_label_contacts(labeled_grid: npt.NDArray[np.int32]) -> Optional[npt.NDArray[np.int32]]:
-    """Find which labels are in contact with each other without periodic boundary conditions."""
+    """Returns contacts between the labels without periodic boundary conditions."""
     return cy_find_label_contacts(labeled_grid)
 
-
 def find_bridges(labeled_grid: npt.NDArray[np.int32]) -> Optional[npt.NDArray[np.int32]]:
-    """Find which labels are in contact with each other without periodic boundary conditions."""
+    """Returns the bridges between the labels over the boundaries."""
     return cy_find_bridges(labeled_grid)
