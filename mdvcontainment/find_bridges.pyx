@@ -86,5 +86,8 @@ def find_bridges(cnp.ndarray[cnp.int32_t, ndim=3] labeled_grid):
                                     else:
                                         contacts.add((neighbor_label, current_label, -shift_x, -shift_y, -shift_z))
     
-    return np.array(sorted(contacts), dtype=np.int32)
+    if contacts:
+        return np.array(sorted(contacts), dtype=np.int32)
+    else:
+        return
 

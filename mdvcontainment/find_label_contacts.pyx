@@ -74,5 +74,5 @@ def find_label_contacts(cnp.int32_t[:, :, :] labeled_grid):
         contact_list = sorted(contacts)
         return np.array(contact_list, dtype=np.int32)
     else:
-        return np.empty((0, 2), dtype=np.int32)
+        return
 

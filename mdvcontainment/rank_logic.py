@@ -1,16 +1,23 @@
 """
 Graph rank analysis using Eulerian paths and cycle detection.
 """
-import networkx as nx
+# Python
+from typing import List, Tuple, Dict, Set, Any
+
+# Python Module
+from .wrappers import is_eulerian, eulerian_circuit, connected_components
+
+# Python External
 import numpy as np
 import numpy.typing as npt
-from typing import List, Tuple, Dict, Set, Any
+from networkx import Graph, MultiDiGraph
+
 
 # Constants
 SINGULAR_VALUE_TOLERANCE = 0.0001
 
 
-def get_path_matrix(graph: nx.Graph, key: str = 'value') -> npt.NDArray[np.float64]:
+def get_path_matrix(graph: Graph, key: str = 'value') -> npt.NDArray[np.float64]:
     """
     Returns an array with the edge and edge weight in order of the Eulerian path.
     
@@ -30,10 +37,10 @@ def get_path_matrix(graph: nx.Graph, key: str = 'value') -> npt.NDArray[np.float
     ValueError
         If the graph doesn't have an Eulerian circuit
     """
-    if not nx.is_eulerian(graph): # type: ignore[attr-defined]
+    if not is_eulerian(graph):
         raise ValueError("Graph must be Eulerian to compute path matrix")
     
-    eulerian = list(nx.eulerian_circuit(graph, keys=True)) # type: ignore[attr-defined]
+    eulerian = list(eulerian_circuit(graph, keys=True))
     path: list[Any] = []
     
     for source, sink, edge in eulerian:
@@ -161,7 +168,7 @@ def get_rank_from_edge_cycle_matrix(edge_cycle_matrix: npt.NDArray[np.float64]) 
     rank: int = int(np.sum(singular_values > SINGULAR_VALUE_TOLERANCE))
     return rank
 
-def get_rank(graph: nx.Graph, key: str = 'cost') -> int:
+def get_rank(graph: Graph, key: str = 'cost') -> int:
     """
     Computes the topological rank of a graph object.
     
@@ -183,8 +190,8 @@ def get_rank(graph: nx.Graph, key: str = 'cost') -> int:
     return rank
 
 def make_relabel_dicts(
-    positive_subgraphs: List[nx.MultiDiGraph],
-    negative_subgraphs: List[nx.MultiDiGraph]
+    positive_subgraphs: List[MultiDiGraph],
+    negative_subgraphs: List[MultiDiGraph]
 ) -> Tuple[Dict[int, Tuple], Dict[Tuple, int]]:
     """
     Creates bidirectional mapping between component IDs and node labels.
@@ -223,7 +230,7 @@ def make_relabel_dicts(
 def _compute_complement_rank(
     component_labels: Set,
     all_labels: Set,
-    contact_graph: nx.Graph
+    contact_graph: Graph
 ) -> int:
     """
     Computes the maximum rank among all connected components of the complement.
@@ -245,19 +252,19 @@ def _compute_complement_rank(
     complement_graph = contact_graph.subgraph(complement_labels)
     
     max_rank = 0
-    for component in nx.connected_components(nx.Graph(complement_graph)): # type: ignore[attr-defined]
+    for component in connected_components(Graph(complement_graph)):
         subgraph = complement_graph.subgraph(component)
         rank = get_rank(subgraph)
         max_rank = max(max_rank, rank)
     return max_rank
 
 def get_ranks(
-    positive_subgraphs: List[nx.MultiDiGraph],
-    negative_subgraphs: List[nx.MultiDiGraph],
+    positive_subgraphs: List[MultiDiGraph],
+    negative_subgraphs: List[MultiDiGraph],
     nonp_unique_labels: List,
     component_to_labels: Dict[int, Tuple],
     labels_to_component: Dict[Tuple, int],
-    contact_graph: nx.Graph
+    contact_graph: Graph
 ) -> Tuple[Dict[int, int], Dict[int, int]]:
     """
     Computes ranks for all components and their complements.

@@ -3,7 +3,7 @@ Helper functions for high quality composition analysis and plotting.
 """
 
 # Python 
-from typing import List, Tuple, Dict, Set, Union, Optional, Iterable, Literal
+from typing import List, Tuple, Dict, Set, Union, Optional, Iterable
 
 # Python Internal
 from .mda_containment import Containment, ContainmentView

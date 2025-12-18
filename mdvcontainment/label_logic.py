@@ -1,24 +1,25 @@
 """
 Labeling of connected components.
 """
+# Python Module
+from .wrappers import label
 
 # Python External
 import numpy as np
 import numpy.typing as npt
 from typing import List, Dict
-from scipy.ndimage import label
 
 
 def label_3d_grid(grid: npt.NDArray[np.bool_]) -> npt.NDArray[np.bool_]:
     """Label the 3D boolean grid considering 26 neighbors connectivity."""
     # Define the structure for 26 neighbors connectivity
-    structure: npt.NDArray[np.int_] = np.ones((3, 3, 3), dtype=int)
+    structure: npt.NDArray[np.bool_] = np.ones((3, 3, 3), dtype=bool)
 
     # Label connected components of True values (known typing error in label)
-    true_labels, num_true_components = label(grid, structure=structure) # type: ignore[misc]
+    true_labels, num_true_components = label(grid, structure=structure) 
 
     # Label connected components of False values (known typing error in label)
-    false_labels, num_false_components = label(~grid, structure=structure) # type: ignore[misc]
+    false_labels, num_false_components = label(~grid, structure=structure)
     false_labels *= -1  # Make false labels negative
 
     # Combine the labels

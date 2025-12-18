@@ -6,33 +6,24 @@ from typing import cast
 
 # Python External
 from typing import List, Tuple, Dict, Set, Optional
-import networkx as nx
+from networkx import Graph, DiGraph, MultiDiGraph
 import numpy as np
 import numpy.typing as npt
-import matplotlib.pyplot as plt
 
 # Python Module
 from .rank_logic import make_relabel_dicts, get_ranks, get_is_contained
 from .label_logic import label_3d_grid, create_components_grid
+from .wrappers import connected_components
 
 # Cython Module
-#TODO Figure out a nice way to handle cython types. I would like to check these too eventually.
-from .find_label_contacts import find_label_contacts # type: ignore[import-untyped]
-from .find_bridges import find_bridges # type: ignore[import-untyped]
-
-
-def draw_graph(graph: nx.Graph) -> None:
-    """Draws the provided graph using a Kamada-Kawai layout."""
-    nx.draw(graph, pos=nx.kamada_kawai_layout(graph)) # type: ignore[attr-defined]
-    nx.draw_networkx_labels(graph, nx.kamada_kawai_layout(graph)) # type: ignore[attr-defined]
-    plt.show()
+from .wrappers import find_label_contacts, find_bridges
 
 
 def create_contact_graph(
-    contacts: List[Tuple[int, int]], 
+    contacts: Optional[npt.NDArray[np.int32]], 
     nodes: npt.NDArray[np.int32],
-    bridges: Optional[List[Tuple[int, int, int, int, int]]] = None
-) -> nx.MultiDiGraph:
+    bridges: Optional[npt.NDArray[np.int32]] = None
+) -> MultiDiGraph:
     """
     Returns the contact graph using the contacts and bridges.
 
@@ -52,18 +43,19 @@ def create_contact_graph(
     graph: networkx.MultiDiGraph
         The created contact graph.
     """
-    graph: nx.MultiDiGraph = nx.MultiDiGraph()
+    graph: MultiDiGraph = MultiDiGraph()
     for node in nodes:
         if node == 0:
             continue
         graph.add_node(int(node))
 
-    value = np.array([0, 0, 0])
-    for contact in contacts:
-        if 0 in contact:
-            continue
-        graph.add_edge(int(contact[0]), int(contact[1]), label=str(value), cost=value)
-        graph.add_edge(int(contact[1]), int(contact[0]), label=str(value), cost=value)
+    if contacts is not None:
+        value = np.array([0, 0, 0])
+        for contact in contacts:
+            if 0 in contact:
+                continue
+            graph.add_edge(int(contact[0]), int(contact[1]), label=str(value), cost=value)
+            graph.add_edge(int(contact[1]), int(contact[0]), label=str(value), cost=value)
     
     if bridges is not None:
         for bridge in bridges:
@@ -77,10 +69,10 @@ def create_contact_graph(
 
 
 def collapse_nodes(
-    graph: nx.MultiDiGraph, 
+    graph: MultiDiGraph, 
     query_node: int, 
     target_nodes: List[int]
-) -> nx.MultiDiGraph:
+) -> MultiDiGraph:
     """
     Collapse target nodes into the query node recursively.
 
@@ -132,8 +124,8 @@ def collapse_nodes(
 
 def get_subgraphs(
     nonp_unique_labels: npt.NDArray[np.int32], 
-    contact_graph: nx.MultiDiGraph
-) -> Tuple[List[nx.MultiDiGraph], List[nx.MultiDiGraph]]:
+    contact_graph: MultiDiGraph
+) -> Tuple[List[MultiDiGraph], List[MultiDiGraph]]:
     """
     Returns two lists for the positive and negative subgraphs in the contact graph.
 
@@ -155,22 +147,22 @@ def get_subgraphs(
     positive_labels = nonp_unique_labels[nonp_unique_labels > 0]
     negative_labels = nonp_unique_labels[nonp_unique_labels < 0]
     # Create the positive and negative contacts subgraphs.
-    positive_contact_graph = cast(nx.MultiDiGraph, contact_graph.subgraph(positive_labels))
-    negative_contact_graph = cast(nx.MultiDiGraph, contact_graph.subgraph(negative_labels))
+    positive_contact_graph = cast(MultiDiGraph, contact_graph.subgraph(positive_labels))
+    negative_contact_graph = cast(MultiDiGraph, contact_graph.subgraph(negative_labels))
     # Create the connected_components subgraphs (components)
-    positive_subgraphs_raw = [positive_contact_graph.subgraph(c) for c in nx.connected_components(nx.Graph(positive_contact_graph))] # type: ignore[attr-defined]
-    negative_subgraphs_raw = [negative_contact_graph.subgraph(c) for c in nx.connected_components(nx.Graph(negative_contact_graph))] # type: ignore[attr-defined]
+    positive_subgraphs_raw = [positive_contact_graph.subgraph(c) for c in connected_components(Graph(positive_contact_graph))] 
+    negative_subgraphs_raw = [negative_contact_graph.subgraph(c) for c in connected_components(Graph(negative_contact_graph))] 
     
     # Cast to MultiDiGraph for type compatibility
-    positive_subgraphs = [cast(nx.MultiDiGraph, sg) for sg in positive_subgraphs_raw]
-    negative_subgraphs = [cast(nx.MultiDiGraph, sg) for sg in negative_subgraphs_raw]
+    positive_subgraphs = [cast(MultiDiGraph, sg) for sg in positive_subgraphs_raw]
+    negative_subgraphs = [cast(MultiDiGraph, sg) for sg in negative_subgraphs_raw]
 
     return positive_subgraphs, negative_subgraphs
 
 
 def get_mapping_dicts(
-    positive_subgraphs: List[nx.MultiDiGraph], 
-    negative_subgraphs: List[nx.MultiDiGraph]
+    positive_subgraphs: List[MultiDiGraph], 
+    negative_subgraphs: List[MultiDiGraph]
 ) -> Tuple[Dict[int, List[int]], Dict[Tuple[int, ...], int], Dict[int, int]]:
     """
     Returns the component -> label maps.
@@ -213,8 +205,8 @@ def get_mapping_dicts(
 def create_component_contact_graph(
     component2labels: Dict[int, List[int]], 
     label2component: Dict[int, int], 
-    contact_graph: nx.MultiDiGraph
-) -> nx.Graph:
+    contact_graph: MultiDiGraph
+) -> Graph:
     """
     Returns the undirected component level contact graph.
 
@@ -233,7 +225,7 @@ def create_component_contact_graph(
         The created component level contact graph.
     """
     # Creating a component level contact graph.
-    component_contact_graph: nx.Graph = nx.Graph()
+    component_contact_graph: Graph = Graph()
     for component, labels in component2labels.items():
         # Add the component node
         component_contact_graph.add_node(component)
@@ -255,8 +247,8 @@ def create_component_contact_graph(
 def create_containment_graph(
     is_contained_dict: Dict[int, bool], 
     unique_components: npt.NDArray[np.int32], 
-    component_contact_graph: nx.Graph
-) -> nx.DiGraph:
+    component_contact_graph: Graph
+) -> DiGraph:
     """
     Returns the directed containment graph. A parent points to its children.
 
@@ -280,7 +272,7 @@ def create_containment_graph(
     is_contained: Set[int] = set([component for component, value in is_contained_dict.items() if value == True])
 
     # Instantiate all nodes for the containment_graph
-    containment_graph: nx.DiGraph = nx.DiGraph()
+    containment_graph: DiGraph = DiGraph()
     for node in unique_components:
         containment_graph.add_node(int(node))
 
@@ -302,7 +294,7 @@ def create_containment_graph(
 
 
 def format_dag(
-    G: nx.DiGraph, 
+    G: DiGraph, 
     node: int, 
     ranks: Dict[int, int], 
     counts: Dict[int, int|float],
@@ -336,7 +328,7 @@ def format_dag(
 
 
 def format_dag_structure(
-    G: nx.DiGraph, 
+    G: DiGraph, 
     ranks: Dict[int, int], 
     counts: Dict[int, int|float],
     unit: str = 'nvoxels'
@@ -366,9 +358,9 @@ def format_dag_structure(
 def calc_containment_graph(
     boolean_grid: npt.NDArray[np.bool_], 
     verbose: bool = False
-) -> Tuple[nx.DiGraph, nx.Graph, npt.NDArray[np.int32], Dict[int, int]]:
+) -> Tuple[DiGraph, Graph, npt.NDArray[np.int32], Dict[int, int]]:
     """
-    Creates the containment graph nx.DiGraph(), taking right angled PBC into account.
+    Creates the containment graph DiGraph(), taking right angled PBC into account.
     
     Parameters
     ----------
@@ -379,9 +371,9 @@ def calc_containment_graph(
 
     Returns
     -------
-    containment_graph: nx.DiGraph
+    containment_graph: DiGraph
         The containment graph with directed edges from parent to child.
-    component_contact_graph: nx.Graph
+    component_contact_graph: Graph
         The undirected component contact graph.
     components_grid: int32 3D array
         The components grid where each voxel has a component integer.
@@ -397,17 +389,17 @@ def calc_containment_graph(
     # Find all non periodic label contacts
     if verbose:
         print('Calculating non-periodic label contacts...')
-    nonp_contacts: List[Tuple[int, int]] = find_label_contacts(nonp_labeled_grid)
+    nonp_contacts: Optional[npt.NDArray[np.int32]] = find_label_contacts(nonp_labeled_grid)
 
     # Find all bridges (contacts between labels over PBC).
     if verbose:
         print('Calculating periodic label contacts...')
-    bridges: List[Tuple[int, int, int, int, int]] = find_bridges(nonp_labeled_grid)
+    bridges: Optional[npt.NDArray[np.int32]] = find_bridges(nonp_labeled_grid)
 
     # Generate the label contact graph with bridge annotation.
     if verbose:
         print('Creating label contact graph...')
-    contact_graph: nx.MultiDiGraph = create_contact_graph(nonp_contacts, nonp_unique_labels, bridges)
+    contact_graph: MultiDiGraph = create_contact_graph(nonp_contacts, nonp_unique_labels, bridges)
 
     # Get all the mappings between labels and components plus their subgraphs.
     if verbose:
@@ -443,7 +435,7 @@ def calc_containment_graph(
     # Create the component level contact graph.
     if verbose:
         print('Creating component contact graph...')
-    component_contact_graph: nx.Graph = create_component_contact_graph(
+    component_contact_graph: Graph = create_component_contact_graph(
         component2labels, label2component, contact_graph)
     
     # Finally create the containment graph by directing the edges in the 
@@ -452,7 +444,7 @@ def calc_containment_graph(
     if verbose:
         print('Creating containment_graph...')
     unique_components: npt.NDArray[np.int32] = np.unique(components_grid)
-    containment_graph: nx.DiGraph = create_containment_graph(is_contained_dict, unique_components, component_contact_graph)
+    containment_graph: DiGraph = create_containment_graph(is_contained_dict, unique_components, component_contact_graph)
 
     if verbose:
         print('Done!')

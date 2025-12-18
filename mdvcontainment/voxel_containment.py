@@ -3,13 +3,14 @@ Containment analysis at the voxel level, these classes perform the heavy lifting
 """
 
 # Python External 
-from typing import Union, List, Dict, Tuple, Optional, TypeAlias, cast, TYPE_CHECKING, Protocol
+from typing import Union, List, Dict, Tuple, Optional, TypeAlias, cast, TYPE_CHECKING
 import numpy as np
 import numpy.typing as npt
-import networkx as nx
+from networkx import Graph, DiGraph
 import MDAnalysis as mda
 
 # Python Module
+from .wrappers import ancestors, descendants, topological_sort, transitive_reduction
 from .graph_logic import format_dag_structure, calc_containment_graph
 from .voxel_logic import voxels_to_universe
 
@@ -31,8 +32,8 @@ class VoxelContainmentBase:
     # in concrete subclasses but are defined here for static type checking
     if TYPE_CHECKING:
         _base: 'VoxelContainment'
-        _containment_graph: nx.DiGraph
-        _component_contact_graph: nx.Graph
+        _containment_graph: DiGraph
+        _component_contact_graph: Graph
     
     def __str__(self):
         counts = cast(Dict[int, Union[int, float]], self.voxel_counts)
@@ -51,12 +52,12 @@ class VoxelContainmentBase:
         return self._base._components_grid
     
     @property
-    def component_contact_graph(self) -> nx.Graph:
+    def component_contact_graph(self) -> Graph:
         """Contact graph from base containment."""
         return self._component_contact_graph
     
     @property
-    def containment_graph(self) -> nx.DiGraph:
+    def containment_graph(self) -> DiGraph:
         """Return the containment graph computed during construction."""
         return self._containment_graph
     
@@ -149,7 +150,7 @@ class VoxelContainmentBase:
         
         for node in start_nodes:
             if node in self.containment_graph:
-                downstream_nodes.update(nx.descendants(self.containment_graph, node)) # type: ignore[attr-defined]
+                downstream_nodes.update(descendants(self.containment_graph, node))
         return sorted(downstream_nodes)
     
     def get_parent_nodes(self, start_nodes: List[int]) -> List[int]:
@@ -171,7 +172,7 @@ class VoxelContainmentBase:
         
         for node in start_nodes:
             if node in self.containment_graph:
-                upstream_nodes.update(nx.ancestors(self.containment_graph, node)) # type: ignore[attr-defined]
+                upstream_nodes.update(ancestors(self.containment_graph, node))
         return sorted(upstream_nodes)
     
     def get_total_voxel_count(self, nodes: List[int]) -> int:
@@ -327,7 +328,7 @@ class VoxelContainment(VoxelContainmentBase):
         # Compute and cache voxel counts if required
         self._voxel_counts = self._compute_counts(self._components_grid)
     
-    def _calc_containment(self) -> Tuple[nx.DiGraph, nx.Graph, npt.NDArray[np.int32], Dict[int, int]]:
+    def _calc_containment(self) -> Tuple[DiGraph, Graph, npt.NDArray[np.int32], Dict[int, int]]:
         """Calculate the containment graph."""
         return calc_containment_graph(
             self._grid, verbose=self._verbose,
@@ -388,7 +389,7 @@ class VoxelContainmentView(VoxelContainmentBase):
             directed=True, 
             reduce_transitive=True,
             )
-        assert type(containment_graph) == nx.DiGraph, 'The containment graph should be directed.'
+        assert type(containment_graph) == DiGraph, 'The containment graph should be directed.'
         self._containment_graph = containment_graph
     
     def _resolve_nodes_to_original(self, nodes: List[int]) -> List[int]:
@@ -415,7 +416,7 @@ class VoxelContainmentView(VoxelContainmentBase):
         
         # Second pass: map removed nodes to nearest kept ancestor
         try:
-            topo_order = list(nx.topological_sort(self._base.containment_graph)) # type: ignore[attr-defined]
+            topo_order = list(topological_sort(self._base.containment_graph))
         except:
             topo_order = self._base.nodes
         
@@ -456,10 +457,10 @@ class VoxelContainmentView(VoxelContainmentBase):
         return reverse_map
     
     def _build_view_graph(
-            self, source_graph: Union[nx.DiGraph, nx.Graph], 
+            self, source_graph: Union[DiGraph, Graph], 
             directed: bool = False, 
             reduce_transitive: bool = False,
-            ) -> Union[nx.DiGraph, nx.Graph]:
+            ) -> Union[DiGraph, Graph]:
         """
         Build a view graph with remapped node IDs from a source graph.
         
@@ -477,7 +478,7 @@ class VoxelContainmentView(VoxelContainmentBase):
         networkx.Graph or networkx.DiGraph
             View graph with remapped node IDs.
         """
-        view_graph = nx.DiGraph() if directed else nx.Graph()
+        view_graph = DiGraph() if directed else Graph()
         view_graph.add_nodes_from(self._keep_nodes)
         
         # Iterate over all edges in the source graph
@@ -490,7 +491,8 @@ class VoxelContainmentView(VoxelContainmentBase):
         
         # Apply transitive reduction if requested (only for directed graphs)
         if reduce_transitive and directed:
-            view_graph = nx.transitive_reduction(view_graph) # type: ignore[attr-defined]
+            assert type(view_graph) == DiGraph, 'Transitive reduction can only be applied on a DiGraph.'
+            view_graph = transitive_reduction(view_graph)
         
         return view_graph
     

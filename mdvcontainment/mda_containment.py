@@ -3,7 +3,7 @@ MDAnalysis level wrapper for containment of AtomGroups, still uses VoxelContainm
 """
 
 # Python
-from typing import Union, List, Set, Dict, Tuple, Optional, TypeAlias, TYPE_CHECKING, Protocol
+from typing import Union, List, Set, Dict, Tuple, Optional, TypeAlias, TYPE_CHECKING
 import numpy as np
 import numpy.typing as npt
 import MDAnalysis as mda  # type: ignore
